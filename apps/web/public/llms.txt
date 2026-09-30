@@ -1,0 +1,19 @@
+# Puzzleloom
+
+Local, deterministic word-puzzle generator. No API keys or network services.
+
+## Commands (from the repository)
+- pnpm puzzleloom make crossword --words words.txt --seed 42 --out puzzle.json --pdf puzzle.pdf --json
+- pnpm puzzleloom render puzzle.json --pdf class.pdf --variants 30 --key appended --json
+- pnpm puzzleloom check puzzle.json --json
+- pnpm puzzleloom link puzzle.json --json
+- pnpm puzzleloom book book.json --pdf book.pdf --json
+- pnpm mcp (stdio MCP server)
+
+Types: crossword, word-search, scramble, cryptogram.
+Project schema: /puzzleloom.schema.json (puzzleloom.puzzle/v1).
+Word rows: WORD: clue, tab-separated, spaced dash, or CSV. Up to 40 words and 30 letters per word.
+MCP tools: create_puzzle, validate_puzzle, render_pdf, render_image, make_play_link, make_book, list_options.
+Book spec: {"files":["puzzle1.json","puzzle2.json"],"key":"appended"}. Paths relative to spec.
+Play links carry the answers. Import JSON in the maker for editing.
+All examples and original word lists are CC0. Software MIT; fonts OFL.

@@ -1,0 +1,263 @@
+{
+  "$ref": "#/definitions/PuzzleloomPuzzle",
+  "definitions": {
+    "PuzzleloomPuzzle": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "puzzleloom.puzzle/v1"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "crossword",
+            "word-search",
+            "scramble",
+            "cryptogram"
+          ]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "word": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 30
+              },
+              "clue": {
+                "type": "string",
+                "maxLength": 200,
+                "default": ""
+              }
+            },
+            "required": [
+              "word"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 40
+        },
+        "quote": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "size": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 30,
+              "default": 18
+            },
+            "difficulty": {
+              "type": "string",
+              "enum": [
+                "easy",
+                "medium",
+                "hard"
+              ],
+              "default": "medium"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "de",
+                "pt",
+                "it",
+                "nl"
+              ],
+              "default": "en"
+            },
+            "stripAccents": {
+              "type": "boolean",
+              "default": false
+            },
+            "expandEszett": {
+              "type": "boolean",
+              "default": true
+            },
+            "paper": {
+              "type": "string",
+              "enum": [
+                "letter",
+                "a4"
+              ],
+              "default": "letter"
+            },
+            "font": {
+              "type": "string",
+              "enum": [
+                "atkinson",
+                "opendyslexic"
+              ],
+              "default": "atkinson"
+            },
+            "fontSize": {
+              "type": "string",
+              "enum": [
+                "S",
+                "M",
+                "L",
+                "XL"
+              ],
+              "default": "M"
+            },
+            "wordBank": {
+              "type": "boolean",
+              "default": false
+            },
+            "hint": {
+              "type": "string",
+              "enum": [
+                "none",
+                "first",
+                "clue"
+              ],
+              "default": "none"
+            },
+            "givenLetters": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8,
+              "default": 0
+            },
+            "allowReveal": {
+              "type": "boolean",
+              "default": true
+            },
+            "nameFields": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "grid": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 4
+            },
+            "maxItems": 60
+          },
+          "maxItems": 60
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "word": {
+                "type": "string"
+              },
+              "clue": {
+                "type": "string"
+              },
+              "x": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dx": {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "dy": {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "number": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "word",
+              "clue",
+              "x",
+              "y",
+              "dx",
+              "dy",
+              "number"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 40
+        },
+        "scrambled": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40
+        },
+        "cipher": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "encoded": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "given": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "schema",
+        "type",
+        "seed",
+        "id",
+        "title",
+        "instructions",
+        "entries",
+        "quote",
+        "options",
+        "grid",
+        "placements",
+        "scrambled",
+        "cipher",
+        "encoded",
+        "given"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
