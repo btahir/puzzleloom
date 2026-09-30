@@ -1,0 +1,307 @@
+{
+  "schema": "puzzleloom.puzzle/v1",
+  "type": "crossword",
+  "seed": 42,
+  "id": "PL-0016",
+  "title": "Crossword · In the garden",
+  "instructions": "Use the clues to fill the crossword. Each square holds one letter.",
+  "entries": [
+    {
+      "word": "GARDEN",
+      "clue": "A place to grow"
+    },
+    {
+      "word": "SEED",
+      "clue": "A small beginning"
+    },
+    {
+      "word": "LEAF",
+      "clue": "A plant’s green food maker"
+    },
+    {
+      "word": "ROOT",
+      "clue": "Holds a plant in the soil"
+    },
+    {
+      "word": "WATER",
+      "clue": "A drink for thirsty plants"
+    },
+    {
+      "word": "FLOWER",
+      "clue": "A bloom with petals"
+    },
+    {
+      "word": "EARTH",
+      "clue": "Soil beneath our feet"
+    },
+    {
+      "word": "STEM",
+      "clue": "Holds a flower upright"
+    },
+    {
+      "word": "SUN",
+      "clue": "Our nearest star"
+    },
+    {
+      "word": "GROW",
+      "clue": "Get a little bigger"
+    }
+  ],
+  "quote": "",
+  "options": {
+    "size": 18,
+    "difficulty": "medium",
+    "language": "en",
+    "stripAccents": false,
+    "expandEszett": true,
+    "paper": "letter",
+    "font": "atkinson",
+    "fontSize": "M",
+    "wordBank": false,
+    "hint": "none",
+    "givenLetters": 0,
+    "allowReveal": true,
+    "nameFields": true
+  },
+  "grid": [
+    [
+      "",
+      "",
+      "L",
+      "E",
+      "A",
+      "F",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "L",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "G",
+      "R",
+      "O",
+      "W",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "A",
+      "",
+      "W",
+      "",
+      "",
+      "W",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "R",
+      "",
+      "E",
+      "",
+      "",
+      "A",
+      "",
+      ""
+    ],
+    [
+      "S",
+      "E",
+      "E",
+      "D",
+      "",
+      "R",
+      "O",
+      "O",
+      "T",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "E",
+      "",
+      "",
+      "",
+      "",
+      "E",
+      "",
+      ""
+    ],
+    [
+      "",
+      "S",
+      "U",
+      "N",
+      "",
+      "",
+      "E",
+      "A",
+      "R",
+      "T",
+      "H"
+    ],
+    [
+      "",
+      "T",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "E",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "M",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "placements": [
+    {
+      "word": "LEAF",
+      "clue": "A plant’s green food maker",
+      "x": 2,
+      "y": 0,
+      "dx": 1,
+      "dy": 0,
+      "number": 1
+    },
+    {
+      "word": "FLOWER",
+      "clue": "A bloom with petals",
+      "x": 5,
+      "y": 0,
+      "dx": 0,
+      "dy": 1,
+      "number": 2
+    },
+    {
+      "word": "GROW",
+      "clue": "Get a little bigger",
+      "x": 3,
+      "y": 2,
+      "dx": 1,
+      "dy": 0,
+      "number": 3
+    },
+    {
+      "word": "GARDEN",
+      "clue": "A place to grow",
+      "x": 3,
+      "y": 2,
+      "dx": 0,
+      "dy": 1,
+      "number": 3
+    },
+    {
+      "word": "WATER",
+      "clue": "A drink for thirsty plants",
+      "x": 8,
+      "y": 3,
+      "dx": 0,
+      "dy": 1,
+      "number": 4
+    },
+    {
+      "word": "SEED",
+      "clue": "A small beginning",
+      "x": 0,
+      "y": 5,
+      "dx": 1,
+      "dy": 0,
+      "number": 5
+    },
+    {
+      "word": "ROOT",
+      "clue": "Holds a plant in the soil",
+      "x": 5,
+      "y": 5,
+      "dx": 1,
+      "dy": 0,
+      "number": 6
+    },
+    {
+      "word": "SUN",
+      "clue": "Our nearest star",
+      "x": 1,
+      "y": 7,
+      "dx": 1,
+      "dy": 0,
+      "number": 7
+    },
+    {
+      "word": "STEM",
+      "clue": "Holds a flower upright",
+      "x": 1,
+      "y": 7,
+      "dx": 0,
+      "dy": 1,
+      "number": 7
+    },
+    {
+      "word": "EARTH",
+      "clue": "Soil beneath our feet",
+      "x": 6,
+      "y": 7,
+      "dx": 1,
+      "dy": 0,
+      "number": 8
+    }
+  ],
+  "scrambled": [],
+  "cipher": {},
+  "encoded": "",
+  "given": []
+}

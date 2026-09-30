@@ -36,3 +36,11 @@ docs/launch/media/
 *.log
 .idea/
 .vscode/
+
+# Reproducible font bundles
+packages/render/src/fonts.generated.ts
+apps/web/public/fonts/
+
+# Keep the required development records despite the generic build-output rule.
+!docs/build/
+!docs/build/**

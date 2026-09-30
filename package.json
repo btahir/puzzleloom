@@ -1,0 +1,59 @@
+{
+  "name": "puzzleloom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @puzzleloom/web dev",
+    "build": "pnpm assets && pnpm --filter @puzzleloom/web build",
+    "assets": "tsx scripts/assets.ts",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "licences": "tsx scripts/licences.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm licences && pnpm build && pnpm e2e",
+    "bench": "tsx scripts/bench.ts",
+    "puzzleloom": "tsx packages/cli/src/index.ts",
+    "mcp": "tsx packages/mcp/src/index.ts",
+    "preview": "serve apps/web/out -l 4317",
+    "format": "prettier --write .",
+    "prepare": "pnpm assets"
+  },
+  "dependencies": {
+    "@fontsource/atkinson-hyperlegible-next": "^5.2.0",
+    "@fontsource/young-serif": "^5.2.0",
+    "@fontsource/opendyslexic": "^5.2.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "fflate": "^0.8.2",
+    "idb": "^8.0.3",
+    "pdf-lib": "^1.17.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^10.11.0",
+    "fast-check": "^4.5.3",
+    "pdfjs-dist": "^5.5.207",
+    "prettier": "^3.8.1",
+    "serve": "^14.2.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.0.18",
+    "@resvg/resvg-js": "^2.6.2",
+    "zod-to-json-schema": "^3.25.1",
+    "lighthouse": "^13.0.3"
+  }
+}
