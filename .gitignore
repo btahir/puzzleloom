@@ -1,0 +1,38 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.turbo/
+.vercel/
+
+# Test output
+test-results/
+playwright-report/
+blob-report/
+.lighthouseci/
+
+# Local scratch and private notes (never committed)
+notes/
+scratch/
+.env
+.env.*
+!.env.example
+
+# Launch media stays out of git; the README uses WebP only
+docs/launch/media/
+*.mp4
+*.mov
+*.gif
+*.mp3
+*.wav
+*.m4a
+
+# OS and editor
+.DS_Store
+*.log
+.idea/
+.vscode/
