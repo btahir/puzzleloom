@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Working rules for any coding agent building Puzzleloom (Codex cloud first). Read [README.md](README.md) first: it is the product brief and its decisions are binding. This file says how to work. A "Using Puzzleloom from an agent" section (CLI, MCP, schema, examples) gets added here once those exist.
+Working rules for any coding agent building Puzzleloom (Codex cloud first). Read [README.md](README.md) for usage and [the original brief](docs/build/BRIEF.md) for the binding product decisions. This file says how to work; the CLI, MCP and schema reference is below.
 
 ## Your situation
 
@@ -16,7 +16,7 @@ Working rules for any coding agent building Puzzleloom (Codex cloud first). Read
 
 ## Commands
 
-These are set up in milestone 1 and must keep working afterwards:
+These commands are implemented and must keep working:
 
 ```bash
 pnpm install
@@ -76,11 +76,34 @@ pnpm bench        # crossword quality benchmark; writes docs/build/bench.md
 - **Setup script:**
 
   ```bash
-  corepack enable
-  if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; elif [ -f package.json ]; then pnpm install; fi
-  if [ -f package.json ]; then pnpm exec playwright install --with-deps chromium || true; fi
+  # In cloud shells, first activate tools as described in docs/build/ENVIRONMENT.md.
+  pnpm install --frozen-lockfile
+  pnpm assets
+  if ! command -v chromium >/dev/null 2>&1; then
+    pnpm exec playwright install --with-deps chromium
+  fi
   ```
 
-- **Node:** 22 or later.
+- **Node:** 22.13 or later; this environment uses Node 24.
 - **Agent internet access:** on, with the "Common dependencies" allowlist plus the Playwright browser CDN (`cdn.playwright.dev`, `playwright.download.prss.microsoft.com`). Allow GET/HEAD/OPTIONS only. The agent needs this to add npm packages mid-task. The product itself never uses the network.
 - **Secrets:** none needed.
+
+## Using Puzzleloom from an agent
+
+The implementation is present. Read `docs/build/PROGRESS.md` and `docs/build/ACCEPTANCE.md` for verified state. The original binding brief is preserved in `docs/build/BRIEF.md`; README.md is now the public usage guide.
+
+- Run `pnpm puzzleloom --help` for the CLI. `--json` emits `{ok,result}` or `{ok:false,error}`. Exit 0 is success, 1 is an input/runtime failure, and 2 is an unknown-command usage failure.
+- Create: `pnpm puzzleloom make crossword --words words.txt --seed 42 --out lesson.puzzleloom.json --pdf lesson.pdf --json`.
+- Validate: `pnpm puzzleloom check lesson.puzzleloom.json --json`.
+- Render: `pnpm puzzleloom render lesson.puzzleloom.json --pdf class.pdf --variants 30 --key appended`.
+- Link: `pnpm puzzleloom link lesson.puzzleloom.json --json`.
+- Book: `pnpm puzzleloom book book.json --pdf book.pdf`; the spec has `files` (paths relative to the spec), optional `title`, and `key` (`appended`, `none`, or `only`).
+- MCP: configure a local stdio server whose command is `pnpm`, arguments are `["mcp"]`, and working directory is the checkout. For clients that cannot specify a working directory, use `node --import /absolute/checkout/node_modules/tsx/dist/loader.mjs /absolute/checkout/packages/mcp/src/index.ts`. Tools: `create_puzzle`, `validate_puzzle`, `render_pdf`, `render_image`, `make_play_link`, `make_book`, `list_options`. Tool schemas are discoverable via MCP.
+- The project schema is generated at `apps/web/public/puzzleloom.schema.json`. A project includes its seed, options, inputs and solved layout. Validate untrusted projects before rendering.
+- UI labels and static content live in `apps/web/src/content/ui.ts` and `pages.ts`. Generator errors remain in the shared core; dynamic UI messages are composed at the call sites.
+- `pnpm assets` regenerates font bundles from the original fonts in `assets/fonts`. OpenDyslexic is embedded without subsetting. Never modify the source font files.
+- Cloud shells need the activation in `docs/build/ENVIRONMENT.md`.
+
+### Approved licence exceptions
+
+The owner explicitly approved these transitive package/licence pairs during implementation: `caniuse-lite` / `CC-BY-4.0`, `minimatch` / `BlueOak-1.0.0`, and `pako` / `(MIT AND Zlib)`. Their attributions are in CREDITS.md and the checker permits only these exact pairs. Other licence restrictions remain in force. Sharp/libvips is excluded from the dependency graph.
