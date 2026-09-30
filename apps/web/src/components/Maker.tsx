@@ -78,6 +78,7 @@ export default function Maker({
     [dialog, setDialog] = useState<"saved" | "share" | null>(null),
     [saved, setSaved] = useState<Saved[]>([]),
     [support, setSupport] = useState(false);
+  const workerReady = useRef<Promise<void>>(Promise.resolve());
   const worker = useRef<Worker | null>(null),
     seq = useRef(0),
     pending = useRef(
@@ -95,7 +96,10 @@ export default function Maker({
       new Promise<WorkerResult>((resolve, reject) => {
         const id = ++seq.current;
         pending.current.set(id, { resolve, reject });
-        worker.current?.postMessage({ ...data, id });
+        const activeWorker = worker.current;
+        workerReady.current.then(() =>
+          activeWorker?.postMessage({ ...data, id }),
+        );
       }),
     [],
   );
@@ -112,9 +116,17 @@ export default function Maker({
     setNotice(copy.puzzleOpened);
   }, []);
   useEffect(() => {
+    let markReady = () => {};
+    workerReady.current = new Promise<void>((resolve) => {
+      markReady = resolve;
+    });
     const w = new Worker(new URL("../lib/puzzle.worker.ts", import.meta.url));
     worker.current = w;
     w.onmessage = ({ data }) => {
+      if (data.ready) {
+        markReady();
+        return;
+      }
       const task = pending.current.get(data.id);
       pending.current.delete(data.id);
       if (data.error) task?.reject(new Error(data.error));

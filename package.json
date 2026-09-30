@@ -17,13 +17,14 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "licences": "tsx scripts/licences.ts",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm licences && pnpm build && pnpm e2e",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm licences && pnpm build && pnpm e2e && pnpm test:dev",
     "bench": "tsx scripts/bench.ts",
     "puzzleloom": "tsx packages/cli/src/index.ts",
     "mcp": "tsx packages/mcp/src/index.ts",
     "preview": "serve apps/web/out -l 4317",
     "format": "prettier --write .",
-    "prepare": "pnpm assets"
+    "prepare": "pnpm assets",
+    "test:dev": "tsx scripts/dev-smoke.ts"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible-next": "^5.2.0",

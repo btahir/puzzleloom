@@ -62,3 +62,6 @@ self.onmessage = async (
     });
   }
 };
+
+// Development bundlers load worker chunks asynchronously. Signal readiness before requests are sent.
+self.postMessage({ ready: true });
