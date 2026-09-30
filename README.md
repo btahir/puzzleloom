@@ -27,7 +27,7 @@ Free alone doesn't win this category, because free options already exist. **Puzz
 
 1. **Layout quality you can trust.** Every word is placed in one connected, compact grid that fits the page, or we tell you exactly which word can't fit and why. No silent drops.
 2. **Every type, one tool, print-first.** Crossword, word search, scramble and cryptogram share one word list, one print system and one answer-key system. The printed sheet is the product, and it looks like it came from a publisher.
-3. **Built for a classroom.** Class sets (30 different versions of the same puzzle, each with its own key and ID), large print, a dyslexia-friendly font, accented letters and other alphabets, and play links for Chromebooks.
+3. **Built for a classroom.** Class sets (30 different versions of the same puzzle, each with its own key and ID), large print, an OpenDyslexic font option, accented letters and other alphabets, and play links for Chromebooks.
 4. **Agent-first.** A CLI and a local MCP server run the same engine, so someone's AI assistant can write the clues and Puzzleloom guarantees a valid grid and answer key. LLMs can write clues, but they can't lay out a crossword.
 
 **One sentence:** the only free puzzle maker that places every word, prints like a publisher, makes a whole class set in one click, and that your AI assistant can drive.
@@ -66,7 +66,7 @@ v1.1 candidates (don't build unless v1 is done): fill-in (criss-cross fill-it-in
 - **Vector PDF**, US Letter or A4 (default by browser locale), with real embedded fonts. It stays crisp at any size and is toner-friendly: pure black on white, with nothing that relies on colour.
 - **Answer key** on its own page, or as a separate PDF, or left out. In the key, found words are circled or shaded grey, and crossword keys show filled grids.
 - **Class set:** N versions (2–40) of the same words, each with a different layout and printed ID, exported as one PDF with every key at the back, or as separate student and key PDFs.
-- **Size and access options:** font size S/M/L/XL (XL is large print), a dyslexia-friendly font, and letter spacing that stays readable for young kids.
+- **Size and access options:** font size S/M/L/XL (XL is large print), an OpenDyslexic font option, and letter spacing that stays readable for young kids.
 - **PNG and SVG** of the puzzle for slides, Google Docs and worksheets.
 - **Print** straight from the browser, using the same PDF.
 
@@ -123,7 +123,11 @@ All fonts are self-hosted from npm (`@fontsource/*`), never loaded from Google a
 
 - **Headings and wordmark:** Young Serif (OFL). It's warm and bookish, and not the usual startup serif.
 - **UI, clues and grid letters:** Atkinson Hyperlegible Next (OFL). It was designed for legibility, which is a real story for kids and low-vision readers. Use tabular figures for clue numbers.
-- **Dyslexia option:** OpenDyslexic (check its licence before bundling). Swap only if it fails, and write down why.
+- **Optional font:** OpenDyslexic, from `@fontsource/opendyslexic`. Its licence is checked: SIL OFL 1.1 with the Reserved Font Name "OpenDyslexic".
+  - Ship the npm files unmodified; embedding them in generated PDFs is fine.
+  - Don't edit, rebuild or re-subset the web font files and still call them OpenDyslexic.
+  - It's an option the user picks, never the default.
+  - **Copy rule:** don't claim it improves reading, because studies haven't shown that it does. Call it "OpenDyslexic font", not "dyslexia-friendly".
 
 ### Logo
 
