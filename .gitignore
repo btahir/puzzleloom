@@ -48,3 +48,6 @@ apps/web/next-env.d.ts
 
 # Private launch drafts (never committed)
 docs/launch/drafts/
+
+# Launch video project (HyperFrames, captures, renders) stays local
+docs/launch/video/
