@@ -31,6 +31,32 @@ const STARTER_SEED = 4317;
 const newSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const SUPPORT_NOTE_KEY = "puzzleloom-support-note";
 const DEFAULT_TITLE = "In the garden";
+/** The answer words of a list, for spotting a new puzzle. */
+function wordSet(text: string): Set<string> {
+  return new Set(
+    text
+      .split(/\r?\n/)
+      .map((line) =>
+        line
+          .split(/:|\t|\s+-\s+|,/)[0]
+          .trim()
+          .toUpperCase(),
+      )
+      .filter(Boolean),
+  );
+}
+/** The words of a quote. */
+function quoteSet(text: string): Set<string> {
+  return new Set(text.toUpperCase().split(/\s+/).filter(Boolean));
+}
+/** A new list: it shares fewer than half of its words with the earlier one. */
+function mostlyNew(before: Set<string>, now: Set<string>): boolean {
+  let shared = 0;
+  now.forEach((w) => {
+    if (before.has(w)) shared++;
+  });
+  return shared < Math.min(before.size, now.size) / 2;
+}
 /** "Week 3 spelling" + crossword -> "week-3-spelling-crossword". */
 function fileStem(title: string, type: PuzzleType) {
   const slug = title
@@ -150,21 +176,28 @@ export default function Maker({
       : type !== "cryptogram" && words === DEFAULT_WORDS
         ? DEFAULT_TITLE
         : copy.defaultTitles[type]);
-  // A new puzzle gets its own layout number (and so its own printed ID). The static
-  // starter keeps STARTER_SEED; the first change of type, words or quote picks a fresh one.
-  const seedChosen = useRef(false);
+  // Every new puzzle gets its own layout number, and so its own printed ID: a type
+  // switch, or a list sharing fewer than half its words with the last one. Editing a
+  // clue, fixing a typo or changing print options keeps the ID. The prerendered
+  // starter keeps STARTER_SEED so the static HTML is deterministic.
+  const seedBasis = useRef({
+    type: initialType,
+    words: wordSet(initialWords),
+    quote: quoteSet(initialQuote),
+  });
   useEffect(() => {
-    if (
-      type === initialType &&
-      words === initialWords &&
-      quote === initialQuote
-    )
-      return;
-    if (!seedChosen.current && seed === STARTER_SEED) {
-      seedChosen.current = true;
-      setSeed(newSeed());
-    }
-  }, [type, words, quote, seed, initialType, initialWords, initialQuote]);
+    const basis = seedBasis.current,
+      nowWords = wordSet(words),
+      nowQuote = quoteSet(quote);
+    const isNew =
+      type !== basis.type ||
+      (type === "cryptogram"
+        ? mostlyNew(basis.quote, nowQuote)
+        : mostlyNew(basis.words, nowWords));
+    if (!isNew) return;
+    seedBasis.current = { type, words: nowWords, quote: nowQuote };
+    setSeed(newSeed());
+  }, [type, words, quote]);
   const workerReady = useRef<Promise<void>>(Promise.resolve());
   const worker = useRef<Worker | null>(null),
     seq = useRef(0),
@@ -201,7 +234,12 @@ export default function Maker({
     setAutoSize(
       (p.options as Options & { autoSize?: boolean }).autoSize ?? false,
     );
-    seedChosen.current = true;
+    // An opened puzzle keeps its own layout number.
+    seedBasis.current = {
+      type: p.type,
+      words: wordSet(p.entries.map((e) => e.word).join("\n")),
+      quote: quoteSet(p.quote),
+    };
     setSeed(p.seed);
     setDialog(null);
     setNotice(copy.puzzleOpened);
@@ -330,6 +368,12 @@ export default function Maker({
     const t = setTimeout(() => setNotice(""), 6000);
     return () => clearTimeout(t);
   }, [notice]);
+  // The support note never blocks: it clears itself after a short read.
+  useEffect(() => {
+    if (!support) return;
+    const t = setTimeout(() => setSupport(false), 15000);
+    return () => clearTimeout(t);
+  }, [support]);
   useEffect(() => {
     if (!deleted) return;
     const t = setTimeout(() => setDeleted(null), 8000);
@@ -706,7 +750,6 @@ export default function Maker({
           <button
             className="reshuffle"
             onClick={() => {
-              seedChosen.current = true;
               setSeed(newSeed());
             }}
             disabled={busy}
@@ -1011,7 +1054,6 @@ export default function Maker({
                 value={seed}
                 aria-describedby="seed-note"
                 onChange={(e) => {
-                  seedChosen.current = true;
                   setSeed(+e.target.value >>> 0);
                 }}
               />
