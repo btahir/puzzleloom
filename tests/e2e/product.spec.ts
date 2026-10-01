@@ -390,7 +390,7 @@ test("opening another play link in the same tab replaces the puzzle and resets a
   await expect(page.getByLabel("Answer 1", { exact: true })).toHaveValue("");
   await page.goto("/play/#broken");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "This play link doesn't work",
+    "This play link doesn’t work",
   );
   await page.goto("/play/#" + encode(first));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -523,11 +523,183 @@ test("landing pages render FAQ, JSON-LD and unique metadata", async ({
     const title = await page.title();
     expect(seen.has(title)).toBe(false);
     seen.add(title);
-    // The sample sheet uses the bundled print font, not a browser fallback.
+    // The sheet uses the topic as its title and the bundled print font.
+    await expect(page.getByLabel("Puzzle title", { exact: true })).toHaveValue(
+      topic.sheetTitle,
+    );
     const family = await page
-      .locator(".sample-print svg text")
+      .locator(".paper svg text")
       .first()
       .evaluate((el) => getComputedStyle(el).fontFamily);
     expect(family).toContain("Puzzle Print Atkinson");
   }
+});
+test("list errors, stale preview and confirmations show where the user is looking", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await ready(page);
+  await page.getByLabel("Words and clues").fill("GARDEN\nEARTH\nQUIZ");
+  const listError = page.locator(".list-error");
+  await expect(listError).toContainText(
+    "QUIZ didn’t fit: it shares no letters with the other words. Add a word with Q, U, I or Z.",
+  );
+  await expect(listError).toBeInViewport();
+  await expect(page.getByLabel("Words and clues")).toHaveAttribute(
+    "aria-describedby",
+    "list-error",
+  );
+  await expect(page.locator(".stale-label")).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toHaveAccessibleDescription("Fix the word list first.");
+  await page.getByLabel("Words and clues").fill(DEFAULT_WORDS);
+  await ready(page);
+  await expect(page.locator(".stale-label")).toHaveCount(0);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  const status = page.locator(".action-status [role=status]");
+  await expect(status).toContainText("Saved");
+  await expect(status).toBeInViewport();
+});
+test("confirmations stay above the sticky Download bar on phones", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await ready(page);
+  const event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+  await event;
+  const status = page.locator(".action-status [role=status]");
+  await expect(status).toBeInViewport();
+  const bar = await page.locator(".mobile-download").boundingBox();
+  const box = await status.boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y);
+});
+test("cryptogram words never break across lines on a phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const p = generate({
+    type: "cryptogram",
+    quote:
+      "Every good plan starts with one clear first step, and a second step follows.",
+    seed: 7,
+  });
+  await page.goto("/play/#" + encode(p));
+  const words = page.locator(".crypto-word");
+  expect(await words.count()).toBeGreaterThan(5);
+  const broken = await words.evaluateAll(
+    (els) =>
+      els.filter((el) => {
+        const tops = [...el.children].map(
+          (c) => (c as HTMLElement).getBoundingClientRect().bottom,
+        );
+        return Math.max(...tops) - Math.min(...tops) > 4;
+      }).length,
+  );
+  expect(broken).toBe(0);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+});
+test("crossword player highlights the word, stays in it and checks the whole word", async ({
+  page,
+}) => {
+  const p = generate({ type: "crossword", seed: 42 });
+  await page.goto("/play/#" + encode(p));
+  const q = p.placements.find((q) => q.dx === 1)!;
+  const word = letters(q.word);
+  await page.locator(`[data-cell="${q.x},${q.y}"]`).focus();
+  await expect(page.locator(".cross-cell.in-word")).toHaveCount(word.length);
+  await expect(page.locator(".clue.is-current")).toHaveCount(1);
+  await expect(page.locator(".current-clue")).toContainText(q.clue);
+  // Type a wrong word one letter too long: the cursor must stop at the last square.
+  await page.keyboard.type("Z".repeat(word.length + 1));
+  const last = `${q.x + word.length - 1},${q.y}`;
+  await expect(page.locator(`[data-cell="${last}"]`)).toBeFocused();
+  // The meta line counts filled squares; it does not reveal correctness.
+  await expect(page.locator(".player-meta")).toContainText("squares filled");
+  await expect(page.locator(".player-meta")).not.toContainText("correct");
+  await page.getByRole("button", { name: "Check word", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText(
+    `0 of ${word.length} letters right`,
+  );
+  await expect(page.locator(".cross-cell.incorrect")).toHaveCount(word.length);
+});
+test("broken play links explain themselves without technical detail", async ({
+  page,
+}) => {
+  const link = encode(generate({ type: "crossword", seed: 3 }));
+  // A link cut off part-way, as happens when it is copied badly.
+  await page.goto("/play/#" + link.slice(0, Math.floor(link.length / 2)));
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "This play link doesn’t work",
+  );
+  await expect(page.locator("main")).toContainText(
+    "cut off when it was copied",
+  );
+  await expect(page.locator("main")).not.toContainText(
+    /zlib|invalid|undefined/i,
+  );
+});
+test("word search draws found words as a highlighter stroke", async ({
+  page,
+}) => {
+  const p = generate({
+    type: "word-search",
+    words: "GARDEN\nEARTH",
+    seed: 42,
+    options: { size: 8, difficulty: "easy" },
+  });
+  await page.goto("/play/#" + encode(p));
+  const q = p.placements[0];
+  const n = letters(q.word).length - 1;
+  await page.locator(`[data-xy="${q.x},${q.y}"]`).focus();
+  await page.keyboard.press("Enter");
+  await page.locator(`[data-xy="${q.x + q.dx * n},${q.y + q.dy * n}"]`).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".found-strokes line")).toHaveCount(1);
+});
+test("preview can be enlarged for proofreading", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  await page.getByRole("button", { name: "Enlarge", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".paper svg")).toBeVisible();
+  const box = await dialog.locator(".paper").first().boundingBox();
+  expect(box!.width).toBeGreaterThan(600);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+test("touch screens get 44px controls", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await page.goto(baseURL + "/");
+  await expect(page.locator(".maker")).toHaveAttribute("data-ready", "true");
+  for (const selector of [
+    ".saved-button",
+    ".preview-toggle button",
+    ".segmented button",
+    ".theme-button",
+    ".menu-button",
+    ".editor-footer .text-button",
+  ]) {
+    const box = await page.locator(selector).first().boundingBox();
+    expect(box!.height, selector).toBeGreaterThanOrEqual(44);
+  }
+  await context.close();
+});
+test("Download PDF is reachable at 1024x768", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("/");
+  await ready(page);
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toBeInViewport({ ratio: 1 });
 });
