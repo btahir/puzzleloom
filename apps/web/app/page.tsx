@@ -1,5 +1,5 @@
 import { copy } from "../src/content/ui";
-import { Arrow } from "../src/components/Icon";
+import { ArrowRight } from "../src/components/Icon";
 import Maker from "../src/components/MakerServer";
 import { landingPages } from "../src/content/pages";
 import { pageMeta } from "../src/config/meta";
@@ -36,7 +36,7 @@ export default function Home() {
                 )}
                 {"link" in item && (
                   <a className="pitch-link" href={item.link.href}>
-                    {item.link.label} <Arrow />
+                    {item.link.label} <ArrowRight />
                   </a>
                 )}
               </dd>
@@ -53,7 +53,7 @@ export default function Home() {
           {landingPages.map((p) => (
             <li key={p.slug}>
               <a href={`/${p.slug}/`}>
-                <span>{p.shortTitle}</span> <Arrow />
+                <span>{p.shortTitle}</span> <ArrowRight />
               </a>
             </li>
           ))}

@@ -99,8 +99,10 @@ button {
   padding: 8px 13px;
   border-radius: 4px;
 }
-button:hover:not(:disabled) {
-  background: var(--desk);
+@media (hover: hover) {
+  button:not(.primary):hover:not(:disabled) {
+    background: var(--desk);
+  }
 }
 :focus-visible {
   outline: 3px solid var(--primary);
@@ -180,6 +182,10 @@ code {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+}
+/* Keeps the footer at the bottom on short pages (header 64px, footer about 170px). */
+main {
+  min-height: calc(100dvh - 234px);
 }
 .skip-link {
   position: absolute;
@@ -311,7 +317,8 @@ svg text[font-family="OpenDyslexic"] {
   border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--surface);
-  overflow: hidden;
+  /* clip, not hidden: hidden would stop the sticky preview and Download bar working. */
+  overflow: clip;
 }
 .maker-top {
   display: flex;
@@ -381,12 +388,13 @@ svg text[font-family="OpenDyslexic"] {
 }
 .workbench {
   display: grid;
-  grid-template-columns: 272px minmax(300px, 1fr) 272px;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) 300px;
   align-items: stretch;
 }
 .word-panel,
 .options-panel {
-  padding: 18px 20px 22px;
+  --pad: 20px;
+  padding: 18px var(--pad) 22px;
 }
 .word-panel {
   border-right: 1px solid var(--rule);
@@ -412,7 +420,7 @@ svg text[font-family="OpenDyslexic"] {
   font-variant-numeric: tabular-nums;
 }
 .help {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--muted);
   line-height: 1.55;
 }
@@ -520,6 +528,21 @@ svg text[font-family="OpenDyslexic"] {
   padding: 18px 24px 16px;
   min-width: 0;
 }
+/* The sheet stays in view while long settings scroll. */
+.preview-sticky {
+  position: sticky;
+  top: 12px;
+}
+/* Download stays reachable on short laptop and Chromebook screens. */
+.export-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--surface);
+  margin: 14px calc(-1 * var(--pad)) 0;
+  padding: 12px var(--pad) 14px;
+  border-top: 1px solid var(--rule);
+}
 .preview-toolbar {
   justify-content: space-between;
   margin-bottom: 16px;
@@ -541,15 +564,18 @@ svg text[font-family="OpenDyslexic"] {
   color: var(--muted);
 }
 .preview-toggle button[aria-pressed="true"] {
-  background: var(--surface);
-  box-shadow: 0 1px 2px #0002;
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
   font-weight: 600;
 }
 /* Size the sheet to the viewport so the whole page shows above the fold. */
 .paper-wrap {
-  max-width: min(520px, max(340px, calc((100svh - 318px) * 0.773)));
+  max-width: min(560px, max(320px, calc((100svh - 318px) * 0.773)));
   margin: 0 auto;
+}
+/* Landing pages have a taller intro above the maker. */
+.landing-intro + .maker .paper-wrap {
+  max-width: min(560px, max(320px, calc((100svh - 372px) * 0.773)));
 }
 .paper-wrap.is-a4 {
   max-width: min(505px, max(330px, calc((100svh - 318px) * 0.707)));
@@ -597,8 +623,9 @@ svg text[font-family="OpenDyslexic"] {
   justify-content: space-between;
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+  align-items: center;
 }
 .page-nav {
   display: flex;
@@ -654,7 +681,7 @@ svg text[font-family="OpenDyslexic"] {
 .field-note {
   margin-top: 5px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
@@ -674,10 +701,9 @@ svg text[font-family="OpenDyslexic"] {
   color: var(--muted);
 }
 .segmented button[aria-checked="true"] {
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
   font-weight: 600;
-  box-shadow: 0 1px 2px #0002;
 }
 .range-row {
   display: flex;
@@ -742,16 +768,18 @@ details[open] summary {
   font-weight: 600;
   border-radius: 4px;
 }
-.primary:hover:not(:disabled) {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
+@media (hover: hover) {
+  .primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 82%, var(--ink));
+    border-color: color-mix(in srgb, var(--primary) 82%, var(--ink));
+    color: var(--on-primary);
+  }
 }
 a.primary:hover {
-  color: var(--bg);
+  color: var(--on-primary);
 }
 .download-area {
-  margin-top: 14px;
+  margin-top: 0;
 }
 .download-button,
 .mobile-download button {
@@ -767,7 +795,7 @@ a.primary:hover {
   display: block;
   text-align: center;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 7px;
 }
 .secondary-actions {
@@ -778,7 +806,8 @@ a.primary:hover {
   margin-top: 10px;
 }
 .secondary-actions button {
-  flex: 1;
+  flex: 1 0 auto;
+  white-space: nowrap;
   font-size: 12.5px;
   padding: 6px 4px;
   background: var(--surface);
@@ -878,6 +907,11 @@ a.primary:hover {
   background: var(--surface);
   color: var(--ink);
   font-size: 13.5px;
+}
+.pitch-link,
+.support-note a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .pitch-link {
   display: inline-flex;
@@ -1042,7 +1076,9 @@ a.primary:hover {
   border-color: var(--primary);
 }
 .donation-tiers strong {
-  font-size: 22px;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 400;
+  font-size: 24px;
   color: var(--primary);
   font-variant-numeric: tabular-nums;
 }
@@ -1058,11 +1094,6 @@ a.primary:hover {
 .support-page .primary {
   margin: 8px 0 4px;
 }
-.player-type {
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-}
 
 /* Landing pages */
 .landing-intro {
@@ -1070,15 +1101,7 @@ a.primary:hover {
   margin: 0 auto;
   padding: 28px 0 24px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 210px;
-  gap: 48px;
-  align-items: end;
-}
-.sample-print {
-  height: 150px;
-  overflow: hidden;
-  padding: 10px 12px 0;
-  margin-bottom: -24px;
+  grid-template-columns: minmax(0, 1fr);
 }
 .landing-intro h1 {
   font-size: 38px;
@@ -1089,10 +1112,6 @@ a.primary:hover {
   max-width: 720px;
   color: var(--muted);
   font-size: 16px;
-}
-.sample-print .sheet {
-  transform: rotate(2deg);
-  transform-origin: top left;
 }
 .landing-notes {
   max-width: 1320px;
@@ -1124,19 +1143,10 @@ a.primary:hover {
   border-top: 1px solid var(--rule);
 }
 .tips li {
-  padding: 10px 0 10px 22px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--rule);
   position: relative;
   line-height: 1.6;
-}
-.tips li:before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 17px;
-  width: 8px;
-  height: 8px;
-  border: 1.5px solid var(--primary);
 }
 .faq h3 {
   font-family: var(--font-interface), sans-serif;
@@ -1156,24 +1166,54 @@ a.primary:hover {
 }
 
 /* Player and dialogs */
+.player h1 {
+  margin-bottom: 10px;
+}
+.player-instructions {
+  font-size: 16px;
+}
 .player-meta {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   border-block: 1px solid var(--rule);
   padding: 12px 0;
-  margin: 25px 0;
-  font-size: 13px;
+  margin: 22px 0;
+  font-size: 14px;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.lead-plain {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.button-row.spaced {
+  margin-top: 24px;
 }
 .player-layout {
   display: grid;
-  grid-template-columns: 1fr 240px;
-  gap: 35px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 40px;
+}
+.current-clue {
+  margin-top: 12px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--highlight) 30%, var(--surface));
+  border-left: 3px solid var(--highlight);
+  font-size: 15px;
+  max-width: 570px;
+}
+.current-clue b {
+  margin-right: 4px;
+}
+.play-grid-wrap {
+  position: relative;
+  max-width: 570px;
+  margin-top: 14px;
 }
 .play-grid {
+  position: relative;
   display: grid;
-  max-width: 570px;
-  margin-top: 17px;
   gap: 0;
   touch-action: none;
 }
@@ -1181,7 +1221,7 @@ a.primary:hover {
 .cross-cell {
   aspect-ratio: 1;
   min-width: 0;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--rule-strong);
   border-radius: 0;
   padding: 0;
   display: grid;
@@ -1189,19 +1229,19 @@ a.primary:hover {
   font-size: clamp(11px, 1.3vw, 20px);
   background: var(--surface);
 }
-.play-grid > button {
-  font-weight: 400;
-}
 .cross-cell {
   position: relative;
+  margin: 0 -1px -1px 0;
+  border-color: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 .cross-cell > span {
   position: absolute;
-  top: 0;
+  top: 1px;
   left: 2px;
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1;
   pointer-events: none;
+  z-index: 1;
 }
 .cross-cell input {
   width: 100%;
@@ -1212,23 +1252,89 @@ a.primary:hover {
   border-radius: 0;
   background: transparent;
   font-size: inherit;
+  font-weight: 600;
 }
+.cross-cell.in-word {
+  background: color-mix(in srgb, var(--highlight) 30%, var(--surface));
+}
+.cross-cell.is-active,
 .cross-cell input:focus {
   background: var(--highlight);
   color: #1d2230;
-  outline-offset: 0;
 }
-.play-grid .found {
-  background: var(--highlight);
+.cross-cell input:focus {
+  outline-offset: -3px;
+}
+.cross-cell.is-active > span {
   color: #1d2230;
 }
-.play-grid .selected {
-  background: var(--primary);
-  color: var(--bg);
+/* Word search: plain letters, one outer rule, found words drawn with a highlighter stroke. */
+.play-grid.word-search {
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+}
+.play-grid.word-search > button {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: transparent;
+  font-weight: 400;
+}
+.play-grid.word-search > button.found {
+  color: #1d2230;
+}
+:root[data-theme="dark"] .play-grid.word-search > button.found {
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .play-grid.word-search > button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--highlight) 25%, transparent);
+    color: var(--ink);
+  }
+  .play-grid.word-search > button.found:hover:not(:disabled) {
+    color: #1d2230;
+  }
+}
+.play-grid.word-search > button.selected {
+  box-shadow: inset 0 0 0 2px var(--primary);
+  border-radius: 50%;
+}
+.found-strokes {
+  position: absolute;
+  inset: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
+}
+.found-strokes line {
+  stroke: var(--highlight);
+  stroke-width: 0.74;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  opacity: 0.8;
+  vector-effect: none;
+  animation: highlighter 0.22s ease-out;
+}
+:root[data-theme="dark"] .found-strokes line {
+  opacity: 0.92;
+}
+@keyframes highlighter {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.play-grid-wrap:has(.found-strokes) .play-grid > button {
+  z-index: 2;
 }
 .play-clues h2 {
   font-size: 19px;
-  margin: 15px 0 12px;
+  margin: 8px 0 10px;
+}
+.play-clues section + section h2 {
+  margin-top: 22px;
 }
 .play-clues ul {
   list-style: none;
@@ -1236,23 +1342,30 @@ a.primary:hover {
 }
 .play-clues li {
   padding: 5px 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 .found-word {
   text-decoration: line-through;
+  text-decoration-color: var(--ink);
   color: var(--muted);
 }
 .clue {
   display: block;
   text-align: left;
   border: 0;
-  padding: 5px;
-  font-size: 13px;
+  border-radius: 2px;
+  padding: 6px 8px;
+  font-size: 14px;
   font-weight: 400;
   width: 100%;
 }
+.clue.is-current {
+  background: color-mix(in srgb, var(--highlight) 30%, var(--surface));
+  font-weight: 600;
+}
 .clue b {
   margin-right: 7px;
+  font-variant-numeric: tabular-nums;
 }
 .scramble-play {
   display: grid;
@@ -1268,11 +1381,19 @@ a.primary:hover {
 .scramble-play strong {
   letter-spacing: 3px;
 }
+/* Cryptogram: each word stays together on one line. */
 .crypto-play {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px 5px;
-  align-items: flex-start;
+  column-gap: 20px;
+  row-gap: 16px;
+  align-items: flex-end;
+}
+.crypto-word {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+  align-items: flex-end;
 }
 .crypto-play label {
   display: flex;
@@ -1286,14 +1407,13 @@ a.primary:hover {
   text-align: center;
   margin-top: 4px;
 }
-.crypto-space {
-  width: 20px;
-}
 .crypto-punctuation {
-  padding: 3px;
+  align-self: flex-end;
+  padding: 0 1px 8px;
+  font-weight: 600;
 }
 .player-actions {
-  margin-top: 35px;
+  margin-top: 32px;
 }
 .play-message,
 .success-message {
@@ -1303,8 +1423,14 @@ a.primary:hover {
   color: var(--primary);
   font-weight: 600;
 }
-.incorrect {
+.incorrect,
+.cross-cell.incorrect {
   box-shadow: inset 0 0 0 2px var(--mark);
+}
+.with-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 dialog {
   max-width: 650px;
@@ -1313,7 +1439,7 @@ dialog {
   color: var(--ink);
   border: 1px solid var(--rule);
   border-radius: 6px;
-  padding: 27px;
+  padding: 24px 27px 27px;
   box-shadow: 0 15px 80px #0003;
   margin: auto;
   max-height: 85vh;
@@ -1325,7 +1451,8 @@ dialog::backdrop {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 .dialog-head h2 {
   font-size: 24px;
@@ -1333,31 +1460,204 @@ dialog::backdrop {
 .dialog-head button {
   font-size: 24px;
   border: 0;
+  min-width: 40px;
+  min-height: 40px;
   padding: 0 5px;
+}
+.zoom-dialog {
+  max-width: min(980px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  background: var(--desk);
+  padding: 16px 20px 24px;
+}
+.zoom-dialog .dialog-head h2 {
+  font-size: 20px;
+}
+.zoom-pages {
+  display: grid;
+  gap: 24px;
+}
+.zoom-pages .paper {
+  width: 100%;
+  cursor: auto;
 }
 .saved-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 13px 0;
+  gap: 10px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--rule);
 }
 .saved-row button {
-  font-size: 11px;
+  font-size: 13px;
 }
-.saved-row button:first-child {
+.saved-row .saved-open {
   flex: 1;
   text-align: left;
   border: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 12px;
+  padding: 10px 8px;
 }
-.saved-row strong {
-  font-size: 15px;
+.saved-open strong {
+  font-size: 16px;
 }
-.saved-row span {
+.saved-open span {
   color: var(--muted);
   font-weight: 400;
+  grid-column: 1;
+}
+.saved-open .open-label {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--primary);
+  font-weight: 600;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.saved-row .danger {
+  color: var(--mark);
+  padding: 8px 4px;
+}
+.undo-row {
+  border: 1px solid var(--rule);
+  margin: 10px 0;
+}
+
+/* Messages beside the work: list errors, stale preview, action status */
+.list-error {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--mark);
+  background: var(--bg);
+  color: var(--mark);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.editor.has-error {
+  border-color: var(--mark);
+}
+.paper-wrap {
+  position: relative;
+}
+.paper-wrap.is-stale .paper {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.stale-label {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  width: min(86%, 340px);
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--mark);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  text-align: left;
+}
+button.paper {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  cursor: zoom-in;
+  font: inherit;
+}
+button.paper:hover:not(:disabled) {
+  background: #fff;
+}
+.paper-wrap.is-key .paper svg {
+  border-top: 3px solid var(--mark);
+}
+.key-caption {
+  color: var(--mark);
+  font-weight: 600;
+}
+.preview-caption .page-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.preview-caption .page-nav button {
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.enlarge-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 5px 10px;
+  background: var(--bg);
+  border-color: var(--rule-strong);
+}
+.action-status:empty {
+  display: none;
+}
+.action-status {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.action-status .message,
+.action-status .support-note {
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 6px 6px 6px 12px;
+  font-size: 14px;
+  align-items: center;
+}
+.action-status .notice {
+  border-left: 3px solid var(--ink);
+}
+.action-status .error {
+  border-left: 3px solid var(--mark);
+}
+.action-status .support-note p {
+  line-height: 1.5;
+}
+.download-note.is-reason {
+  color: var(--mark);
+}
+/* Grouped settings inside "More options" */
+.more-options h3 {
+  font-family: var(--font-interface), sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  color: var(--muted);
+  margin: 16px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule);
+}
+.more-options summary + h3 {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 6px;
+}
+.open-project {
+  margin-top: 14px;
+}
+details.formats summary {
+  font-size: 13px;
+}
+details.formats {
+  margin-top: 16px;
 }
 
 /* Responsive */
@@ -1376,11 +1676,11 @@ dialog::backdrop {
     padding-inline: 36px;
   }
   .workbench {
-    grid-template-columns: 252px minmax(270px, 1fr) 252px;
+    grid-template-columns: 280px minmax(0, 1fr) 280px;
   }
   .word-panel,
   .options-panel {
-    padding-inline: 18px;
+    --pad: 18px;
   }
   .preview-panel {
     padding-inline: 22px;
@@ -1391,7 +1691,7 @@ dialog::backdrop {
 }
 @media (max-width: 1100px) {
   .workbench {
-    grid-template-columns: 230px minmax(240px, 1fr) 230px;
+    grid-template-columns: 250px minmax(0, 1fr) 250px;
   }
   .page-title,
   .maker,
@@ -1411,7 +1711,7 @@ dialog::backdrop {
   }
   .word-panel,
   .options-panel {
-    padding-inline: 14px;
+    --pad: 14px;
   }
   .type-tabs {
     gap: 18px;
@@ -1437,7 +1737,8 @@ dialog::backdrop {
   }
   .options-panel > .panel-heading,
   .options-panel > details,
-  .export-options {
+  .export-options,
+  .export-bar {
     grid-column: 1/-1;
   }
   .type-icon {
@@ -1450,10 +1751,6 @@ dialog::backdrop {
   .landing-side {
     margin-top: 40px;
   }
-  .landing-intro {
-    grid-template-columns: minmax(0, 1fr) 140px;
-    gap: 28px;
-  }
   .landing-intro h1 {
     font-size: 32px;
   }
@@ -1464,6 +1761,14 @@ dialog::backdrop {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
+  }
+  .play-clues.word-search {
+    display: block;
+  }
+  .word-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    column-gap: 16px;
   }
   .play-grid {
     max-width: 600px;
@@ -1497,6 +1802,7 @@ dialog::backdrop {
     top: 100%;
     left: 0;
     right: 0;
+    width: 100%;
     flex-direction: column;
     align-items: stretch;
     gap: 0;
@@ -1596,6 +1902,28 @@ dialog::backdrop {
   .download-area {
     display: none;
   }
+  .export-bar {
+    position: static;
+    margin: 0;
+    padding: 0;
+  }
+  /* Confirmations sit just above the sticky Download bar. */
+  .action-status {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 21;
+    margin: 0;
+  }
+  .action-status .message,
+  .action-status .support-note {
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .preview-sticky {
+    position: static;
+  }
   .mobile-download {
     display: block;
     position: fixed;
@@ -1672,9 +2000,6 @@ dialog::backdrop {
   .landing-intro p {
     font-size: 14.5px;
   }
-  .sample-print {
-    display: none;
-  }
   .landing-notes {
     margin: 0 16px;
     padding-top: 40px;
@@ -1719,6 +2044,36 @@ dialog::backdrop {
   }
   .button-row {
     gap: 8px;
+  }
+}
+/* Touch screens: every control at least 44px. */
+@media (pointer: coarse) {
+  .segmented button,
+  .preview-toggle button,
+  .secondary-actions button,
+  .saved-button,
+  .theme-button,
+  .menu-button,
+  .enlarge-button,
+  .page-nav button,
+  .message button,
+  .support-note button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  details > summary,
+  .text-button,
+  .check {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .site-footer a {
+    display: inline-block;
+    padding-block: 12px;
+  }
+  .browse-links a {
+    min-height: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

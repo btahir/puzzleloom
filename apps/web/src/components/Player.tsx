@@ -1,15 +1,19 @@
 "use client";
 import { copy } from "../content/ui";
-
-import { Arrow } from "./Icon";
+import { ArrowRight } from "./Icon";
 import { useEffect, useRef, useState } from "react";
 import {
   decode,
   encode,
   letters,
   LABELS,
+  type Placement,
   type Puzzle,
 } from "../../../../packages/core/src/index";
+
+const cellsOf = (q: Placement) =>
+  letters(q.word).map((_, i) => `${q.x + q.dx * i},${q.y + q.dy * i}`);
+
 export default function Player() {
   const [p, setP] = useState<Puzzle | null>(null),
     [error, setError] = useState(""),
@@ -17,17 +21,18 @@ export default function Player() {
     [found, setFound] = useState<string[]>([]),
     [start, setStart] = useState<[number, number] | null>(null),
     [message, setMessage] = useState(""),
-    [checked, setChecked] = useState(false),
+    [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set()),
     [active, setActive] = useState<[number, number]>([0, 0]),
     [axis, setAxis] = useState<"across" | "down">("across");
-  const grid = useRef<HTMLDivElement>(null);
+  const grid = useRef<HTMLDivElement>(null),
+    clueList = useRef<HTMLElement>(null);
   useEffect(() => {
     const open = () => {
       setAnswers({});
       setFound([]);
       setStart(null);
       setMessage("");
-      setChecked(false);
+      setCheckedKeys(new Set());
       setError("");
       setAxis("across");
       try {
@@ -35,23 +40,51 @@ export default function Player() {
         setP(puzzle);
         const first = puzzle.placements[0];
         setActive(first ? [first.x, first.y] : [0, 0]);
+        if (first) setAxis(first.dy ? "down" : "across");
       } catch (error) {
+        // Keep technical detail out of the page; it helps when debugging a bad link.
+        console.debug("Puzzleloom play link:", error);
         setP(null);
-        setError((error as Error).message);
+        setError(
+          error instanceof Error && error.name === "PuzzleError"
+            ? error.message
+            : copy.playLinkBrokenBody,
+        );
       }
     };
     open();
     window.addEventListener("hashchange", open);
     return () => window.removeEventListener("hashchange", open);
   }, []);
+  // The word that holds the active cell, preferring the current direction.
+  const wordAt = (x: number, y: number, prefer: "across" | "down") => {
+    if (!p || p.type !== "crossword") return undefined;
+    const k = `${x},${y}`;
+    const matches = p.placements.filter((q) => cellsOf(q).includes(k));
+    return (
+      matches.find((q) => (prefer === "across" ? q.dx === 1 : q.dy === 1)) ??
+      matches[0]
+    );
+  };
+  const current = p ? wordAt(active[0], active[1], axis) : undefined;
+  useEffect(() => {
+    clueList.current
+      ?.querySelector<HTMLElement>(".clue.is-current")
+      ?.scrollIntoView({ block: "nearest" });
+  }, [current?.number, current?.dx]);
   if (error)
     return (
       <div className="content-page">
         <h1>{copy.playLinkBroken}</h1>
-        <p role="alert">{error}</p>
-        <a className="button" href="/">
-          {copy.makeAPuzzle}
-        </a>
+        <p role="alert" className="lead-plain">
+          {error}
+        </p>
+        <p>{copy.playLinkBrokenNext}</p>
+        <p className="button-row spaced">
+          <a className="button primary" href="/">
+            {copy.makeAPuzzle}
+          </a>
+        </p>
       </div>
     );
   if (!p)
@@ -77,16 +110,20 @@ export default function Player() {
   const actual = { ...answers };
   if (p.type === "cryptogram")
     p.given.forEach((c) => (actual[p.cipher[c]] = c));
-  const correct = Object.entries(expected).filter(
+  const total = Object.keys(expected).length,
+    filled = Object.keys(expected).filter((k) => actual[k]).length,
+    correct = Object.entries(expected).filter(
       ([k, v]) => actual[k]?.toUpperCase() === v,
     ).length,
-    total = Object.keys(expected).length,
     done =
       p.type === "word-search"
         ? found.length === p.entries.length
         : correct === total;
+  const isWrong = (k: string) =>
+    checkedKeys.has(k) &&
+    !!actual[k] &&
+    actual[k].toUpperCase() !== expected[k];
   function check(scope: "all" | "letter" | "word" = "all") {
-    setChecked(true);
     if (puzzle.type === "word-search") {
       setMessage(
         done
@@ -97,34 +134,21 @@ export default function Player() {
     }
     let keys = Object.keys(expected);
     if (scope === "letter") keys = [active.join(",")];
-    if (scope === "word") {
-      const word = puzzle.placements.find(
-        (q) =>
-          (axis === "across" ? q.dx === 1 : q.dy === 1) &&
-          letters(q.word).some(
-            (_, i) =>
-              q.x + q.dx * i === active[0] && q.y + q.dy * i === active[1],
-          ),
-      );
-      keys = word
-        ? letters(word.word).map(
-            (_, i) => `${word.x + word.dx * i},${word.y + word.dy * i}`,
-          )
-        : [active.join(",")];
-    }
+    if (scope === "word")
+      keys = current ? cellsOf(current) : [active.join(",")];
+    setCheckedKeys((s) => new Set([...s, ...keys]));
     const right = keys.filter(
       (k) => actual[k]?.toUpperCase() === expected[k],
     ).length;
+    const unit = puzzle.type === "scramble" ? "word" : "letter";
     setMessage(
       right === keys.length
         ? scope === "all"
           ? copy.allCorrect
-          : copy.thatsRight
-        : copy.keepGoing(
-            right,
-            keys.length,
-            puzzle.type === "scramble" ? copy.wordsUnit : copy.lettersUnit,
-          ),
+          : scope === "word"
+            ? copy.wordRight
+            : copy.thatsRight
+        : copy.checkResult(right, keys.length, unit),
     );
   }
   function select(x: number, y: number, from?: [number, number]) {
@@ -159,6 +183,7 @@ export default function Player() {
       setActive([x, y]);
     }
   }
+  /** Free movement with the arrow keys: skips gaps to the next white square. */
   function advance(x: number, y: number, dx: number, dy: number) {
     let xx = x + dx,
       yy = y + dy;
@@ -176,164 +201,236 @@ export default function Player() {
       yy += dy;
     }
   }
+  /** Typing moves within the current word only and stops at its end. */
+  function step(x: number, y: number, delta: 1 | -1) {
+    const word = wordAt(x, y, axis);
+    if (!word) return;
+    const cells = cellsOf(word),
+      i = cells.indexOf(`${x},${y}`),
+      next = cells[i + delta];
+    if (next) {
+      const [nx, ny] = next.split(",").map(Number);
+      focus(nx, ny);
+    }
+  }
   const highlighted = new Set<string>();
   p.placements
     .filter((q) => found.includes(q.word))
-    .forEach((q) =>
-      letters(q.word).forEach((_, i) =>
-        highlighted.add(`${q.x + q.dx * i},${q.y + q.dy * i}`),
-      ),
-    );
+    .forEach((q) => cellsOf(q).forEach((k) => highlighted.add(k)));
+  const wordCells = new Set(current ? cellsOf(current) : []);
+  const typeLabel = LABELS[p.type];
+  const cols = p.grid[0]?.length ?? 0,
+    rows = p.grid.length;
+  const progress =
+    p.type === "word-search"
+      ? copy.wordsFound(found.length, p.entries.length)
+      : p.type === "crossword"
+        ? copy.squaresFilled(filled, total)
+        : p.type === "scramble"
+          ? copy.answersFilled(filled, total)
+          : copy.lettersFilled(filled, total);
+  // Cryptogram: group letters into words so a word never breaks across lines.
+  const cryptoWords =
+    p.type === "cryptogram"
+      ? p.encoded.split(/(\s+)/).filter((w) => w && !/^\s+$/.test(w))
+      : [];
+  let cryptoIndex = 0;
   return (
     <section className="player content-page">
-      <p className="player-type">{LABELS[p.type]}</p>
       <h1>{p.title}</h1>
-      <p>{p.instructions}</p>
+      {p.instructions && (
+        <p className="player-instructions">{p.instructions}</p>
+      )}
       <div className="player-meta">
-        <span>{p.id}</span>
         <span>
-          {p.type === "word-search"
-            ? copy.wordsFound(found.length, p.entries.length)
-            : copy.correctCount(
-                correct,
-                total,
-                p.type === "scramble" ? copy.wordsUnit : copy.lettersUnit,
-              )}
+          {p.title.includes(typeLabel) ? p.id : `${typeLabel} · ${p.id}`}
         </span>
+        <span>{progress}</span>
       </div>
       {(p.type === "crossword" || p.type === "word-search") && (
-        <div className="player-layout">
+        <div className={`player-layout ${p.type}`}>
           <div>
             <p className="help">
               {p.type === "crossword"
                 ? copy.crosswordHelp
                 : copy.wordSearchHelp}
             </p>
-            <div
-              ref={grid}
-              className={`play-grid ${p.type}`}
-              role="group"
-              aria-label={copy.puzzleGrid}
-              style={{
-                gridTemplateColumns: `repeat(${p.grid[0].length},minmax(0,1fr))`,
-              }}
-            >
-              {p.grid.flatMap((row, y) =>
-                row.map((c, x) => {
-                  const k = `${x},${y}`,
-                    number = p.placements.find(
-                      (q) => q.x === x && q.y === y,
-                    )?.number;
-                  if (!c) return <span key={k} className="blocked" />;
-                  if (p.type === "word-search")
-                    return (
-                      <button
-                        key={k}
-                        className={`${highlighted.has(k) ? "found" : ""} ${start?.[0] === x && start?.[1] === y ? "selected" : ""}`}
-                        aria-label={`${copy.cellLabel(y + 1, x + 1)}: ${c}`}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          (e.target as HTMLElement).focus();
-                          if (!start) setStart([x, y]);
-                        }}
-                        onPointerUp={(e) => {
-                          if (start && (start[0] !== x || start[1] !== y)) {
-                            select(x, y);
-                            e.preventDefault();
-                          }
-                        }}
-                        onTouchEnd={(e) => {
-                          const touch = e.changedTouches[0];
-                          const target = document
-                            .elementFromPoint(touch.clientX, touch.clientY)
-                            ?.closest("[data-xy]");
-                          if (target) {
-                            const [tx, ty] = target
-                              .getAttribute("data-xy")!
-                              .split(",")
-                              .map(Number);
-                            if (start && (start[0] !== tx || start[1] !== ty))
-                              select(tx, ty);
-                          }
-                        }}
-                        data-xy={k}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            select(x, y);
-                          }
-                        }}
-                      >
-                        {c}
-                      </button>
-                    );
-                  return (
-                    <label
-                      className={`cross-cell ${checked && answers[k] && answers[k] !== c ? "incorrect" : ""}`}
-                      key={k}
-                    >
-                      {number && <span>{number}</span>}
-                      <input
-                        data-cell={k}
-                        aria-label={`${copy.cellLabel(y + 1, x + 1)}${number ? copy.clueSuffix(number) : ""}`}
-                        autoComplete="off"
-                        autoCapitalize="characters"
-                        maxLength={4}
-                        value={answers[k] ?? ""}
-                        onFocus={() => setActive([x, y])}
-                        onChange={(e) => {
-                          const char =
-                            letters(e.target.value.toUpperCase())
-                              .filter((ch) => /\p{L}/u.test(ch))
-                              .at(-1) ?? "";
-                          setAnswers((a) => ({ ...a, [k]: char }));
-                          if (char)
-                            advance(
-                              x,
-                              y,
-                              axis === "across" ? 1 : 0,
-                              axis === "down" ? 1 : 0,
-                            );
-                        }}
-                        onKeyDown={(e) => {
-                          const moves: Record<string, [number, number]> = {
-                            ArrowRight: [1, 0],
-                            ArrowLeft: [-1, 0],
-                            ArrowUp: [0, -1],
-                            ArrowDown: [0, 1],
-                          };
-                          if (moves[e.key]) {
-                            e.preventDefault();
-                            const [dx, dy] = moves[e.key];
-                            setAxis(dx ? "across" : "down");
-                            advance(x, y, dx, dy);
-                          }
-                          if (e.key === " ") {
-                            e.preventDefault();
-                            setAxis((a) =>
-                              a === "across" ? "down" : "across",
-                            );
-                          }
-                          if (e.key === "Backspace" && !answers[k])
-                            advance(
-                              x,
-                              y,
-                              axis === "across" ? -1 : 0,
-                              axis === "down" ? -1 : 0,
-                            );
-                        }}
-                      />
-                    </label>
-                  );
-                }),
+            {p.type === "crossword" && current && (
+              <p className="current-clue" aria-live="polite">
+                <b>
+                  {current.number} {current.dx ? copy.across : copy.down}
+                </b>{" "}
+                {current.clue || copy.letterCount(letters(current.word).length)}
+              </p>
+            )}
+            <div className="play-grid-wrap">
+              {p.type === "word-search" && (
+                <svg
+                  className="found-strokes"
+                  viewBox={`0 0 ${cols} ${rows}`}
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  {p.placements
+                    .filter((q) => found.includes(q.word))
+                    .map((q) => {
+                      const n = letters(q.word).length - 1;
+                      return (
+                        <line
+                          key={q.word}
+                          x1={q.x + 0.5}
+                          y1={q.y + 0.5}
+                          x2={q.x + q.dx * n + 0.5}
+                          y2={q.y + q.dy * n + 0.5}
+                          pathLength={1}
+                        />
+                      );
+                    })}
+                </svg>
               )}
+              <div
+                ref={grid}
+                className={`play-grid ${p.type}`}
+                role="group"
+                aria-label={copy.puzzleGrid}
+                style={{
+                  gridTemplateColumns: `repeat(${cols},minmax(0,1fr))`,
+                }}
+              >
+                {p.grid.flatMap((row, y) =>
+                  row.map((c, x) => {
+                    const k = `${x},${y}`,
+                      number = p.placements.find(
+                        (q) => q.x === x && q.y === y,
+                      )?.number;
+                    if (!c) return <span key={k} className="blocked" />;
+                    if (p.type === "word-search")
+                      return (
+                        <button
+                          key={k}
+                          className={`${highlighted.has(k) ? "found" : ""} ${start?.[0] === x && start?.[1] === y ? "selected" : ""}`}
+                          aria-label={`${copy.cellLabel(y + 1, x + 1)}: ${c}`}
+                          aria-pressed={
+                            start?.[0] === x && start?.[1] === y
+                              ? true
+                              : undefined
+                          }
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            (e.target as HTMLElement).focus();
+                            if (!start) setStart([x, y]);
+                          }}
+                          onPointerUp={(e) => {
+                            if (start && (start[0] !== x || start[1] !== y)) {
+                              select(x, y);
+                              e.preventDefault();
+                            }
+                          }}
+                          onTouchEnd={(e) => {
+                            const touch = e.changedTouches[0];
+                            const target = document
+                              .elementFromPoint(touch.clientX, touch.clientY)
+                              ?.closest("[data-xy]");
+                            if (target) {
+                              const [tx, ty] = target
+                                .getAttribute("data-xy")!
+                                .split(",")
+                                .map(Number);
+                              if (start && (start[0] !== tx || start[1] !== ty))
+                                select(tx, ty);
+                            }
+                          }}
+                          data-xy={k}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              select(x, y);
+                            }
+                          }}
+                        >
+                          {c}
+                        </button>
+                      );
+                    const isActive = active[0] === x && active[1] === y;
+                    return (
+                      <label
+                        className={`cross-cell ${wordCells.has(k) ? "in-word" : ""} ${isActive ? "is-active" : ""} ${isWrong(k) ? "incorrect" : ""}`}
+                        key={k}
+                      >
+                        {number && <span>{number}</span>}
+                        <input
+                          data-cell={k}
+                          aria-label={`${copy.cellLabel(y + 1, x + 1)}${number ? copy.clueSuffix(number) : ""}`}
+                          autoComplete="off"
+                          autoCapitalize="characters"
+                          maxLength={4}
+                          value={answers[k] ?? ""}
+                          onFocus={() => {
+                            setActive([x, y]);
+                            // Switch direction when the square only belongs to the other one.
+                            const w = wordAt(x, y, axis);
+                            if (w) setAxis(w.dx ? "across" : "down");
+                          }}
+                          onClick={() => {
+                            if (isActive) {
+                              const other =
+                                axis === "across" ? "down" : "across";
+                              const w = wordAt(x, y, other);
+                              if (w && (other === "across" ? w.dx : w.dy))
+                                setAxis(other);
+                            }
+                          }}
+                          onChange={(e) => {
+                            const char =
+                              letters(e.target.value.toUpperCase())
+                                .filter((ch) => /\p{L}/u.test(ch))
+                                .at(-1) ?? "";
+                            setAnswers((a) => ({ ...a, [k]: char }));
+                            setCheckedKeys((s) => {
+                              if (!s.has(k)) return s;
+                              const n = new Set(s);
+                              n.delete(k);
+                              return n;
+                            });
+                            if (char) step(x, y, 1);
+                          }}
+                          onKeyDown={(e) => {
+                            const moves: Record<string, [number, number]> = {
+                              ArrowRight: [1, 0],
+                              ArrowLeft: [-1, 0],
+                              ArrowUp: [0, -1],
+                              ArrowDown: [0, 1],
+                            };
+                            if (moves[e.key]) {
+                              e.preventDefault();
+                              const [dx, dy] = moves[e.key];
+                              setAxis(dx ? "across" : "down");
+                              advance(x, y, dx, dy);
+                            }
+                            if (e.key === " ") {
+                              e.preventDefault();
+                              setAxis((a) =>
+                                a === "across" ? "down" : "across",
+                              );
+                            }
+                            if (e.key === "Backspace" && !answers[k]) {
+                              e.preventDefault();
+                              step(x, y, -1);
+                            }
+                          }}
+                        />
+                      </label>
+                    );
+                  }),
+                )}
+              </div>
             </div>
           </div>
-          <aside className="play-clues">
+          <aside className={`play-clues ${p.type}`} ref={clueList}>
             {p.type === "word-search" ? (
               <>
                 <h2>{copy.findTheseWords}</h2>
-                <ul>
+                <ul className="word-list">
                   {p.entries.map((e) => (
                     <li
                       className={found.includes(e.word) ? "found-word" : ""}
@@ -341,7 +438,7 @@ export default function Player() {
                     >
                       {e.word}
                       {found.includes(e.word) && (
-                        <span className="sr-only">{copy.found}</span>
+                        <span className="sr-only"> {copy.found}</span>
                       )}
                     </li>
                   ))}
@@ -353,19 +450,23 @@ export default function Player() {
                   <h2>{heading}</h2>
                   {p.placements
                     .filter((q) => (i ? q.dy : q.dx))
-                    .map((q) => (
-                      <button
-                        className="clue"
-                        key={q.word}
-                        onClick={() => {
-                          setAxis(i ? "down" : "across");
-                          focus(q.x, q.y);
-                        }}
-                      >
-                        <b>{q.number}</b>{" "}
-                        {q.clue || copy.letterCount(letters(q.word).length)}
-                      </button>
-                    ))}
+                    .map((q) => {
+                      const isCurrent = current === q;
+                      return (
+                        <button
+                          className={`clue ${isCurrent ? "is-current" : ""}`}
+                          aria-current={isCurrent ? "true" : undefined}
+                          key={q.word}
+                          onClick={() => {
+                            setAxis(i ? "down" : "across");
+                            focus(q.x, q.y);
+                          }}
+                        >
+                          <b>{q.number}</b>{" "}
+                          {q.clue || copy.letterCount(letters(q.word).length)}
+                        </button>
+                      );
+                    })}
                 </section>
               ))
             )}
@@ -382,11 +483,7 @@ export default function Player() {
               {p.options.hint === "clue" && <small>{e.clue}</small>}
               <input
                 aria-label={copy.answerLabel(i + 1)}
-                className={
-                  checked && answers[i] && answers[i] !== e.word
-                    ? "incorrect"
-                    : ""
-                }
+                className={isWrong(String(i)) ? "incorrect" : ""}
                 value={answers[i] ?? ""}
                 placeholder={
                   p.options.hint === "first"
@@ -405,33 +502,44 @@ export default function Player() {
         </div>
       )}
       {p.type === "cryptogram" && (
-        <div className="crypto-play" aria-label={copy.cipherMessage}>
-          {letters(p.encoded).map((c, i) =>
-            /\p{L}/u.test(c) ? (
-              <label key={i}>
-                <span>{c}</span>
-                <input
-                  aria-label={copy.decodeLabel(c, i + 1)}
-                  value={actual[c] ?? ""}
-                  readOnly={p.given.some((a) => p.cipher[a] === c)}
-                  maxLength={2}
-                  onChange={(e) =>
-                    setAnswers((a) => ({
-                      ...a,
-                      [c]: letters(e.target.value.toUpperCase()).at(-1) ?? "",
-                    }))
-                  }
-                />
-              </label>
-            ) : (
-              <span
-                className={c === " " ? "crypto-space" : "crypto-punctuation"}
-                key={i}
-              >
-                {c}
+        <div
+          className="crypto-play"
+          aria-label={copy.cipherMessage}
+          role="group"
+        >
+          {cryptoWords.map((word, wi) => {
+            const chars = letters(word);
+            return (
+              <span className="crypto-word" key={wi}>
+                {chars.map((c, ci) => {
+                  const i = ++cryptoIndex;
+                  return /\p{L}/u.test(c) ? (
+                    <label key={ci} className={isWrong(c) ? "incorrect" : ""}>
+                      <span>{c}</span>
+                      <input
+                        aria-label={copy.decodeLabel(c, i)}
+                        value={actual[c] ?? ""}
+                        readOnly={p.given.some((a) => p.cipher[a] === c)}
+                        maxLength={2}
+                        onChange={(e) =>
+                          setAnswers((a) => ({
+                            ...a,
+                            [c]:
+                              letters(e.target.value.toUpperCase()).at(-1) ??
+                              "",
+                          }))
+                        }
+                      />
+                    </label>
+                  ) : (
+                    <span className="crypto-punctuation" key={ci}>
+                      {c}
+                    </span>
+                  );
+                })}
               </span>
-            ),
-          )}
+            );
+          })}
         </div>
       )}
       <div className="button-row player-actions">
@@ -460,7 +568,7 @@ export default function Player() {
           onClick={() => {
             setAnswers({});
             setFound([]);
-            setChecked(false);
+            setCheckedKeys(new Set());
             setMessage(copy.answersCleared);
           }}
         >
@@ -471,8 +579,8 @@ export default function Player() {
         {message || copy.playIdle}
       </p>
       <p className="help">{copy.playPracticeNote}</p>
-      <a href={`/#p=${encode(p)}`} className="text-button">
-        {copy.openInMaker} <Arrow />
+      <a href={`/#p=${encode(p)}`} className="text-button with-arrow">
+        {copy.openInMaker} <ArrowRight />
       </a>
     </section>
   );

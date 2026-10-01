@@ -5,7 +5,7 @@ import { ThemeIcon } from "./Icon";
 import { useEffect, useRef, useState } from "react";
 
 /** PEN across, PAD down, sharing the P. */
-export function Logo({ size = 34 }: { size?: number }) {
+export function Logo({ size = 40 }: { size?: number }) {
   const tile = 11.5,
     stroke = 1.4,
     box = tile * 3 + stroke;

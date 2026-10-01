@@ -1,16 +1,11 @@
 import { copy } from "../../src/content/ui";
 import { notFound } from "next/navigation";
 import Maker from "../../src/components/MakerServer";
-import { Arrow } from "../../src/components/Icon";
+import { ArrowRight } from "../../src/components/Icon";
 import { landingPages } from "../../src/content/pages";
 import { pageMeta, jsonLd } from "../../src/config/meta";
 import { SITE_URL } from "../../src/config/site";
-import {
-  generate,
-  LABELS,
-  type Input,
-} from "../../../../packages/core/src/index";
-import { layoutPuzzle, toSVG } from "../../../../packages/render/src/index";
+import { LABELS } from "../../../../packages/core/src/index";
 export const dynamicParams = false;
 export function generateStaticParams() {
   return landingPages.map((p) => ({ slug: p.slug }));
@@ -38,24 +33,6 @@ export default async function Page({
   const p = landingPages.find((p) => p.slug === slug);
   if (!p) notFound();
   const isCrypto = p.type === "cryptogram";
-  // Cryptogram pages carry the quote in `words`.
-  const source = isCrypto ? { quote: p.words } : { words: p.words };
-  let sample = "";
-  try {
-    sample = toSVG(
-      layoutPuzzle(
-        generate({
-          type: p.type,
-          ...source,
-          title: p.title,
-          seed: 4317,
-          options: { autoSize: true } as Input["options"],
-        }),
-      )[0],
-    );
-  } catch {
-    /* The maker reports placement limitations for the original words. */
-  }
   const related = [
     ...landingPages.filter((o) => o.slug !== p.slug && o.type === p.type),
     ...landingPages.filter((o) => o.type !== p.type),
@@ -81,25 +58,10 @@ export default async function Page({
           <h1>{p.title}</h1>
           <p>{p.intro}</p>
         </div>
-        {sample && (
-          <figure className="sample-print">
-            <div
-              className="sheet"
-              role="img"
-              aria-label={copy.landingSampleLabel(p.title)}
-              dangerouslySetInnerHTML={{
-                __html: sample.replace(
-                  / role="img" aria-label="[^"]*"/,
-                  ' aria-hidden="true"',
-                ),
-              }}
-            />
-          </figure>
-        )}
       </section>
       <Maker
         initialType={p.type}
-        initialTitle={p.title}
+        initialTitle={p.sheetTitle}
         {...(isCrypto ? { initialQuote: p.words } : { initialWords: p.words })}
       />
       <article className="landing-notes">
@@ -134,7 +96,7 @@ export default async function Page({
             {related.map((o) => (
               <li key={o.slug}>
                 <a href={`/${o.slug}/`}>
-                  <span>{o.shortTitle}</span> <Arrow />
+                  <span>{o.shortTitle}</span> <ArrowRight />
                 </a>
               </li>
             ))}

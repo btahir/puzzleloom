@@ -1,7 +1,7 @@
 "use client";
 import { copy } from "../content/ui";
 
-import { Arrow, Download, Shuffle } from "./Icon";
+import { ArrowRight, Download, Shuffle } from "./Icon";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_WORDS,
@@ -104,6 +104,7 @@ export default function Maker({
     ),
     [warnings, setWarnings] = useState<Warning[]>([]),
     [error, setError] = useState(""),
+    [actionError, setActionError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(true),
     [exporting, setExporting] = useState(false),
@@ -113,7 +114,8 @@ export default function Maker({
     [keyMode, setKeyMode] = useState<"appended" | "separate" | "none">(
       "appended",
     ),
-    [dialog, setDialog] = useState<"saved" | "share" | null>(null),
+    [dialog, setDialog] = useState<"saved" | "share" | "zoom" | null>(null),
+    [deleted, setDeleted] = useState<Saved | null>(null),
     [saved, setSaved] = useState<Saved[]>([]),
     [support, setSupport] = useState(false);
   // Until the user types a title it follows the content: the page's starter title while
@@ -128,7 +130,7 @@ export default function Maker({
       ? initialTitle
       : type !== "cryptogram" && words === DEFAULT_WORDS
         ? DEFAULT_TITLE
-        : LABELS[type]);
+        : copy.defaultTitles[type]);
   const workerReady = useRef<Promise<void>>(Promise.resolve());
   const worker = useRef<Worker | null>(null),
     seq = useRef(0),
@@ -200,7 +202,7 @@ export default function Maker({
         try {
           load(decode(location.hash.slice(3)));
         } catch (error) {
-          setError((error as Error).message);
+          setActionError((error as Error).message);
         }
       }
     };
@@ -287,6 +289,17 @@ export default function Maker({
     if (dialog) modal.current?.showModal();
     else modal.current?.close();
   }, [dialog]);
+  // Confirmations fade after a few seconds; errors stay until fixed.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(""), 6000);
+    return () => clearTimeout(t);
+  }, [notice]);
+  useEffect(() => {
+    if (!deleted) return;
+    const t = setTimeout(() => setDeleted(null), 8000);
+    return () => clearTimeout(t);
+  }, [deleted]);
   const option = <K extends keyof Options>(key: K, value: Options[K]) =>
     setOptions((o) => ({ ...o, [key]: value }));
   const currentPreviews = showKey ? previews.answer : previews.puzzle;
@@ -308,7 +321,7 @@ export default function Maker({
   async function pdf(mode: "download" | "print" = "download") {
     if (!canExport) return;
     setExporting(true);
-    setError("");
+    setActionError("");
     try {
       const { bytes } = await request({
         action: "pdf",
@@ -352,11 +365,9 @@ export default function Maker({
           );
         }
         setNotice(
-          keyMode === "appended"
-            ? copy.pdfDownloadedKeyBack
-            : keyMode === "separate"
-              ? copy.pdfDownloadedKeySeparate
-              : copy.pdfDownloaded,
+          keyMode === "separate"
+            ? copy.pdfDownloadedKeySeparate
+            : copy.pdfDownloaded,
         );
         // The support note appears once per session, after the first successful download.
         try {
@@ -369,7 +380,7 @@ export default function Maker({
         }
       }
     } catch (e) {
-      setError((e as Error).message);
+      setActionError((e as Error).message);
     } finally {
       setExporting(false);
     }
@@ -411,7 +422,7 @@ export default function Maker({
         }
       }
     } catch (e) {
-      setError((e as Error).message);
+      setActionError((e as Error).message);
     }
   }
   async function openSaved() {
@@ -419,7 +430,7 @@ export default function Maker({
       setSaved(await listPuzzles());
       setDialog("saved");
     } catch {
-      setError(copy.storageUnavailable);
+      setActionError(copy.storageUnavailable);
     }
   }
   async function importFile(file?: File) {
@@ -428,12 +439,66 @@ export default function Maker({
       if (file.size > 300000) throw new Error(copy.importTooBig);
       load(readPuzzle(JSON.parse(await file.text())));
     } catch (e) {
-      setError(copy.importFailed + (e as Error).message);
+      setActionError(copy.importFailed + (e as Error).message);
     }
   }
   const link = puzzle
     ? `${typeof location === "undefined" ? "" : location.origin}/play/#${encode(puzzle)}`
     : "";
+  const stale = !!error && !!svg;
+  const downloadReason = error ? copy.downloadReasonError : "";
+  const dateFormat = new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+  });
+  const sheetPreview = (
+    <>
+      <div
+        className={`paper-wrap${busy ? " is-busy" : ""}${stale ? " is-stale" : ""}${options.paper === "a4" ? " is-a4" : ""}${showKey ? " is-key" : ""}`}
+        aria-busy={busy}
+      >
+        {svg ? (
+          <button
+            className="paper"
+            onClick={() => setDialog("zoom")}
+            aria-label={copy.enlargePreview}
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+        ) : (
+          <div className="paper empty-paper">{copy.makingPreview}</div>
+        )}
+        {stale && <p className="stale-label">{copy.previewStale}</p>}
+      </div>
+      <div className="preview-caption">
+        <span className={showKey ? "key-caption" : undefined}>
+          {showKey
+            ? copy.answerKeyCaption(keyMode)
+            : options.paper === "letter"
+              ? copy.paperLetter
+              : copy.paperA4}
+        </span>
+        {pages > 1 && (
+          <span className="page-nav">
+            <button
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+              aria-label={copy.previous}
+            >
+              ‹
+            </button>
+            <span>{copy.pageOf(page + 1, pages)}</span>
+            <button
+              disabled={page >= pages - 1}
+              onClick={() => setPage((p) => p + 1)}
+              aria-label={copy.next}
+            >
+              ›
+            </button>
+          </span>
+        )}
+      </div>
+    </>
+  );
   return (
     <section
       className="maker"
@@ -517,32 +582,25 @@ export default function Maker({
                 id="quote"
                 value={quote}
                 maxLength={600}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "list-error" : undefined}
                 onChange={(e) => setQuote(e.target.value)}
                 className="word-editor quote-editor"
               />
-              <label className="field">
-                {copy.sampleQuotes}
-                <select value="" onChange={(e) => setQuote(e.target.value)}>
-                  <option value="" disabled>
-                    {copy.chooseAQuote}
-                  </option>
-                  {QUOTES.map((q) => (
-                    <option key={q}>{q}</option>
-                  ))}
-                </select>
-              </label>
             </>
           ) : (
             <>
               <label className="sr-only" htmlFor="words">
                 {copy.wordsLabel}
               </label>
-              <div className="editor">
+              <div className={`editor${error ? " has-error" : ""}`}>
                 <textarea
                   id="words"
                   className="word-editor"
                   spellCheck={false}
                   value={words}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? "list-error" : undefined}
                   onChange={(e) => setWords(e.target.value)}
                 />
                 <div className="editor-footer">
@@ -563,7 +621,7 @@ export default function Maker({
                   const file = e.target.files?.[0];
                   if (file) {
                     if (file.size > 30000) {
-                      setError(copy.listTooBig);
+                      setActionError(copy.listTooBig);
                       return;
                     }
                     setWords(await file.text());
@@ -572,6 +630,11 @@ export default function Maker({
                 }}
               />
             </>
+          )}
+          {error && (
+            <p className="list-error" id="list-error" role="alert">
+              {error}
+            </p>
           )}
           {warningMessages.length > 0 && !isCrypto && (
             <div className="list-warnings" role="status">
@@ -583,6 +646,19 @@ export default function Maker({
               </ul>
             </div>
           )}
+          {isCrypto && (
+            <label className="field">
+              {copy.sampleQuotes}
+              <select value="" onChange={(e) => setQuote(e.target.value)}>
+                <option value="" disabled>
+                  {copy.chooseAQuote}
+                </option>
+                {QUOTES.map((q) => (
+                  <option key={q}>{q}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             className="reshuffle"
             onClick={() => setSeed(newSeed())}
@@ -591,8 +667,8 @@ export default function Maker({
             <Shuffle /> {busy ? copy.making : copy.newLayout}
           </button>
           {!isCrypto && (
-            <div className="formats">
-              <strong>{copy.formatsHeading}</strong>
+            <details className="formats">
+              <summary>{copy.formatsHeading}</summary>
               <ul>
                 {copy.formats.map((f) => (
                   <li key={f}>
@@ -610,73 +686,61 @@ export default function Maker({
               >
                 {copy.loadExample}
               </button>
-            </div>
+            </details>
           )}
         </aside>
         <div className="preview-panel">
-          <div className="preview-toolbar">
-            <h2>{copy.previewHeading}</h2>
-            <div
-              className="preview-toggle"
-              role="group"
-              aria-label={copy.previewPage}
-            >
-              <button
-                aria-pressed={!showKey}
-                onClick={() => {
-                  setShowKey(false);
-                  setPage(0);
-                }}
-              >
-                {copy.puzzle}
-              </button>
-              <button
-                aria-pressed={showKey}
-                onClick={() => {
-                  setShowKey(true);
-                  setPage(0);
-                }}
-              >
-                {copy.answerKey}
-              </button>
+          <div className="preview-sticky">
+            <div className="preview-toolbar">
+              <h2>{copy.previewHeading}</h2>
+              <div className="toolbar-actions">
+                <div
+                  className="preview-toggle"
+                  role="group"
+                  aria-label={copy.previewPage}
+                >
+                  <button
+                    aria-pressed={!showKey}
+                    onClick={() => {
+                      setShowKey(false);
+                      setPage(0);
+                    }}
+                  >
+                    {copy.puzzle}
+                  </button>
+                  <button
+                    aria-pressed={showKey}
+                    onClick={() => {
+                      setShowKey(true);
+                      setPage(0);
+                    }}
+                  >
+                    {copy.answerKey}
+                  </button>
+                </div>
+                <button
+                  className="enlarge-button"
+                  onClick={() => setDialog("zoom")}
+                  disabled={!svg}
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    aria-hidden="true"
+                  >
+                    <circle cx="7" cy="7" r="4.5" />
+                    <path d="M10.5 10.5 14 14M7 5v4M5 7h4" />
+                  </svg>
+                  {copy.enlarge}
+                </button>
+              </div>
             </div>
+            {sheetPreview}
           </div>
-          <div
-            className={`paper-wrap ${busy ? "is-busy" : ""} ${options.paper === "a4" ? "is-a4" : ""}`}
-            aria-busy={busy}
-          >
-            {svg ? (
-              <div
-                className="paper"
-                dangerouslySetInnerHTML={{ __html: svg }}
-              />
-            ) : (
-              <div className="paper empty-paper">{copy.makingPreview}</div>
-            )}
-            <div className="preview-caption">
-              <span>
-                {options.paper === "letter" ? copy.paperLetter : copy.paperA4}
-              </span>
-              <span>{puzzle?.id ?? ""}</span>
-            </div>
-          </div>
-          {pages > 1 && (
-            <div className="page-nav">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                {copy.previous}
-              </button>
-              <span>{copy.pageOf(page + 1, pages)}</span>
-              <button
-                disabled={page >= pages - 1}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {copy.next}
-              </button>
-            </div>
-          )}
         </div>
         <aside className="options-panel">
           <div className="panel-heading">
@@ -817,8 +881,9 @@ export default function Maker({
               />
             </label>
           )}
-          <details>
+          <details className="more-options">
             <summary>{copy.moreOptions}</summary>
+            <h3>{copy.groupSheet}</h3>
             <label className="field">
               {copy.instructions}
               <textarea
@@ -829,6 +894,25 @@ export default function Maker({
                 onChange={(e) => setInstructions(e.target.value)}
               />
             </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={options.nameFields}
+                onChange={(e) => option("nameFields", e.target.checked)}
+              />
+              {copy.nameFields}
+            </label>
+            {type === "crossword" && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={options.wordBank}
+                  onChange={(e) => option("wordBank", e.target.checked)}
+                />
+                {copy.wordBank}
+              </label>
+            )}
+            <h3>{copy.groupLetters}</h3>
             <label className="field">
               {copy.alphabet}
               <select
@@ -852,32 +936,17 @@ export default function Maker({
               />
               {copy.stripAccents}
             </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={options.expandEszett}
-                onChange={(e) => option("expandEszett", e.target.checked)}
-              />
-              {copy.expandEszett}
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={options.nameFields}
-                onChange={(e) => option("nameFields", e.target.checked)}
-              />
-              {copy.nameFields}
-            </label>
-            {type === "crossword" && (
+            {options.language === "de" && (
               <label className="check">
                 <input
                   type="checkbox"
-                  checked={options.wordBank}
-                  onChange={(e) => option("wordBank", e.target.checked)}
+                  checked={options.expandEszett}
+                  onChange={(e) => option("expandEszett", e.target.checked)}
                 />
-                {copy.wordBank}
+                {copy.expandEszett}
               </label>
             )}
+            <h3>{copy.groupPlay}</h3>
             <label className="check">
               <input
                 type="checkbox"
@@ -893,8 +962,12 @@ export default function Maker({
                 min="0"
                 max="4294967295"
                 value={seed}
+                aria-describedby="seed-note"
                 onChange={(e) => setSeed(+e.target.value >>> 0)}
               />
+              <span className="field-note" id="seed-note">
+                {copy.seedNote}
+              </span>
             </label>
           </details>
           <div className="export-options">
@@ -929,23 +1002,31 @@ export default function Maker({
                 }
               />
             </div>
+          </div>
+          <div className="export-bar">
             <div className="download-area">
               <button
                 className="primary download-button"
                 disabled={!canExport}
+                aria-describedby={
+                  downloadReason ? "download-reason" : undefined
+                }
                 onClick={() => pdf()}
               >
                 <Download />
                 {exporting ? copy.preparingPdf : copy.downloadPdf}
               </button>
-              <span className="download-note">
-                {count > 1 ? copy.noteClassSet(count) + " " : ""}
-                {keyMode === "none"
-                  ? copy.noteNone
-                  : keyMode === "separate"
-                    ? copy.noteSeparate
-                    : copy.noteAppended}
-              </span>
+              {downloadReason ? (
+                <span className="download-note is-reason" id="download-reason">
+                  {downloadReason}
+                </span>
+              ) : (
+                count > 1 && (
+                  <span className="download-note">
+                    {copy.noteClassSet(count, keyMode)}
+                  </span>
+                )
+              )}
             </div>
             <div className="secondary-actions">
               <button disabled={!canExport} onClick={() => pdf("print")}>
@@ -961,98 +1042,109 @@ export default function Maker({
                     await savePuzzle(puzzle!);
                     setNotice(copy.savedLocally);
                   } catch {
-                    setError(copy.saveFailed);
+                    setActionError(copy.saveFailed);
                   }
                 }}
               >
                 {copy.save}
               </button>
             </div>
-            <details>
-              <summary>{copy.moreExports}</summary>
-              <div className="secondary-actions">
-                <button
-                  disabled={!canExport}
-                  onClick={() => imageExport("png")}
-                >
-                  {copy.png}
-                </button>
-                <button
-                  disabled={!canExport}
-                  onClick={() => imageExport("svg")}
-                >
-                  {copy.svg}
-                </button>
-                <button
-                  disabled={!canExport}
-                  onClick={() =>
-                    download(
-                      JSON.stringify(puzzle, null, 2),
-                      `${puzzle!.id}.puzzleloom.json`,
-                      "application/json",
-                    )
-                  }
-                >
-                  {copy.projectFile}
-                </button>
-              </div>
-              <button
-                className="text-button"
-                onClick={() => importInput.current?.click()}
-              >
-                {copy.openProjectFile}
-              </button>
-              <input
-                ref={importInput}
-                type="file"
-                accept=".json"
-                hidden
-                onChange={(e) => {
-                  importFile(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-            </details>
+            <div className="action-status">
+              {actionError && (
+                <div className="message error" role="alert">
+                  <span>{actionError}</span>
+                  <button
+                    aria-label={copy.dismiss}
+                    onClick={() => setActionError("")}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {notice && (
+                <div className="message notice" role="status">
+                  <span>{notice}</span>
+                  <button
+                    aria-label={copy.dismiss}
+                    onClick={() => setNotice("")}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {support && (
+                <div className="support-note">
+                  <p>
+                    {copy.supportNote}{" "}
+                    <a href="/support/">
+                      {copy.supportNoteLink} <ArrowRight />
+                    </a>
+                  </p>
+                  <button
+                    aria-label={copy.dismissSupportNote}
+                    onClick={() => setSupport(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          <details className="more-exports">
+            <summary>{copy.moreExports}</summary>
+            <div className="secondary-actions">
+              <button disabled={!canExport} onClick={() => imageExport("png")}>
+                {copy.png}
+              </button>
+              <button disabled={!canExport} onClick={() => imageExport("svg")}>
+                {copy.svg}
+              </button>
+              <button
+                disabled={!canExport}
+                onClick={() =>
+                  download(
+                    JSON.stringify(puzzle, null, 2),
+                    `${puzzle!.id}.puzzleloom.json`,
+                    "application/json",
+                  )
+                }
+              >
+                {copy.projectFile}
+              </button>
+            </div>
+            <button
+              className="text-button open-project"
+              onClick={() => importInput.current?.click()}
+            >
+              {copy.openProjectFile}
+            </button>
+            <input
+              ref={importInput}
+              type="file"
+              accept=".json"
+              hidden
+              onChange={(e) => {
+                importFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </details>
         </aside>
       </div>
-      {error && (
-        <div className="message error" role="alert">
-          {error}
-        </div>
-      )}
-      {notice && (
-        <div className="message notice" role="status">
-          {notice}
-          <button aria-label={copy.dismiss} onClick={() => setNotice("")}>
-            ×
-          </button>
-        </div>
-      )}
-      {support && (
-        <div className="support-note">
-          <p>
-            {copy.supportNote}{" "}
-            <a href="/support/">
-              {copy.supportNoteLink} <Arrow />
-            </a>
-          </p>
-          <button
-            aria-label={copy.dismissSupportNote}
-            onClick={() => setSupport(false)}
-          >
-            ×
-          </button>
-        </div>
-      )}
       <div className="mobile-download">
-        <button className="primary" disabled={!canExport} onClick={() => pdf()}>
+        <button
+          className="primary"
+          disabled={!canExport}
+          aria-describedby={downloadReason ? "download-reason" : undefined}
+          onClick={() => pdf()}
+        >
           <Download />
           {exporting ? copy.preparingPdf : copy.downloadPdf}
         </button>
       </div>
       <dialog
         ref={modal}
+        className={dialog === "zoom" ? "zoom-dialog" : undefined}
         onCancel={() => setDialog(null)}
         onClick={(e) => {
           if (e.target === modal.current) setDialog(null);
@@ -1061,13 +1153,27 @@ export default function Maker({
       >
         <div className="dialog-head">
           <h2 id="dialog-title">
-            {dialog === "share" ? copy.shareHeading : copy.savedHeading}
+            {dialog === "share"
+              ? copy.shareHeading
+              : dialog === "zoom"
+                ? `${title} · ${showKey ? copy.answerKey : copy.puzzle}`
+                : copy.savedHeading}
           </h2>
           <button onClick={() => setDialog(null)} aria-label={copy.closeDialog}>
             ×
           </button>
         </div>
-        {dialog === "share" ? (
+        {dialog === "zoom" ? (
+          <div className="zoom-pages">
+            {currentPreviews.map((page, i) => (
+              <div
+                key={i}
+                className="paper"
+                dangerouslySetInnerHTML={{ __html: page }}
+              />
+            ))}
+          </div>
+        ) : dialog === "share" ? (
           <>
             <p>{copy.shareBody}</p>
             <label className="field">
@@ -1089,7 +1195,7 @@ export default function Maker({
                 {copy.copyLink}
               </button>
               <a className="button" href={link}>
-                {copy.openPlayer}
+                {copy.openPlayer} <ArrowRight />
               </a>
             </div>
             <p className="help">{copy.shareWarning}</p>
@@ -1097,15 +1203,37 @@ export default function Maker({
         ) : (
           <>
             <p className="help">{copy.savedNote}</p>
+            {deleted && (
+              <p className="message notice undo-row" role="status">
+                <span>{copy.deletedNotice(deleted.puzzle.title)}</span>
+                <button
+                  className="text-button"
+                  onClick={async () => {
+                    await savePuzzle(deleted.puzzle, deleted.key);
+                    setDeleted(null);
+                    setSaved(await listPuzzles());
+                  }}
+                >
+                  {copy.undo}
+                </button>
+              </p>
+            )}
             {saved.length === 0 ? (
               <p>{copy.savedEmpty}</p>
             ) : (
               saved.map((s) => (
                 <div className="saved-row" key={s.key}>
-                  <button onClick={() => load(s.puzzle)}>
+                  <button className="saved-open" onClick={() => load(s.puzzle)}>
                     <strong>{s.puzzle.title}</strong>
                     <span>
-                      {LABELS[s.puzzle.type]} · {s.puzzle.id}
+                      {copy.savedMeta(
+                        LABELS[s.puzzle.type],
+                        s.puzzle.id,
+                        dateFormat.format(s.updated),
+                      )}
+                    </span>
+                    <span className="open-label" aria-hidden="true">
+                      {copy.open} <ArrowRight />
                     </span>
                   </button>
                   <button
@@ -1120,8 +1248,10 @@ export default function Maker({
                     {copy.duplicate}
                   </button>
                   <button
+                    className="text-button danger"
                     onClick={async () => {
                       await deletePuzzle(s.key);
+                      setDeleted(s);
                       setSaved(await listPuzzles());
                     }}
                   >

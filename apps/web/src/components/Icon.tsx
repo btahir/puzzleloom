@@ -69,3 +69,20 @@ export function Download() {
     </svg>
   );
 }
+/** Internal links: a plain right arrow. The diagonal Arrow is for links that leave the site. */
+export function ArrowRight() {
+  return (
+    <svg
+      className="inline-icon"
+      width="14"
+      height="14"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      aria-hidden="true"
+    >
+      <path d="M3 10h13.5M11 4.5l5.5 5.5-5.5 5.5" />
+    </svg>
+  );
+}
