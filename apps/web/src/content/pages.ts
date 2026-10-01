@@ -5,6 +5,8 @@ export type Topic = {
   shortTitle: string;
   /** The H1, matched to the keyword. */
   title: string;
+  /** The title printed on the starter sheet: the word list's topic, never the page name. */
+  sheetTitle: string;
   type: PuzzleType;
   intro: string;
   /** Meta description, 140-160 characters. */
@@ -133,6 +135,7 @@ export const landingPages: Topic[] = [
     slug: "crossword-maker",
     shortTitle: "Crossword maker",
     title: "Crossword maker",
+    sheetTitle: "Space and the planets",
     type: "crossword",
     intro:
       "Paste your words and clues and Puzzleloom builds one connected crossword with numbered Across and Down clues. Print it as a Letter or A4 PDF with an answer key.",
@@ -188,6 +191,7 @@ export const landingPages: Topic[] = [
     slug: "word-search-maker",
     shortTitle: "Word search maker",
     title: "Word search maker",
+    sheetTitle: "Under the sea",
     type: "word-search",
     intro:
       "Enter a word list and get a word search with every word hidden exactly once. Choose the grid size and difficulty, then print it with an answer key.",
@@ -243,6 +247,7 @@ export const landingPages: Topic[] = [
     slug: "word-scramble-maker",
     shortTitle: "Word scramble maker",
     title: "Word scramble maker",
+    sheetTitle: "Spelling words",
     type: "scramble",
     intro:
       "Turn a spelling or vocabulary list into scrambled words with blanks for the answers. Add first-letter hints or your own clues.",
@@ -297,6 +302,7 @@ export const landingPages: Topic[] = [
     slug: "cryptogram-maker",
     shortTitle: "Cryptogram maker",
     title: "Cryptogram maker",
+    sheetTitle: "Secret message",
     type: "cryptogram",
     intro:
       "Type a quote or sentence and Puzzleloom encodes it with a letter-substitution cipher. Reveal a few starting letters, then print the puzzle with its solution.",
@@ -339,6 +345,7 @@ export const landingPages: Topic[] = [
     slug: "vocabulary-crossword-maker",
     shortTitle: "Vocabulary crosswords",
     title: "Vocabulary crossword maker",
+    sheetTitle: "Vocabulary review",
     type: "crossword",
     intro:
       "Use your unit's vocabulary as answers and its definitions as clues. Puzzleloom builds the grid and prints a class set where every student gets a different arrangement.",
@@ -393,6 +400,7 @@ export const landingPages: Topic[] = [
     slug: "spelling-word-search",
     shortTitle: "Spelling word searches",
     title: "Spelling word search maker",
+    sheetTitle: "Long A spelling words",
     type: "word-search",
     intro:
       "Turn this week's spelling list into a word search. Choose Easy for early readers or Hard for backwards words, then print the sheet with a word bank.",
@@ -448,6 +456,7 @@ export const landingPages: Topic[] = [
     slug: "large-print-word-search-maker",
     shortTitle: "Large-print puzzles",
     title: "Large print word search maker",
+    sheetTitle: "In the garden",
     type: "word-search",
     intro:
       "Make a word search with big letters and a small grid. Choose the L or XL text size and print the vector PDF on Letter or A4.",
@@ -501,6 +510,7 @@ export const landingPages: Topic[] = [
     slug: "spanish-word-search-maker",
     shortTitle: "Spanish word searches",
     title: "Spanish word search maker",
+    sheetTitle: "Palabras en español",
     type: "word-search",
     intro:
       "Make a word search for Spanish vocabulary with accents and the letter Ñ kept. Pick Spanish under Language & more, or strip accents if your students do not use them.",
@@ -555,6 +565,7 @@ export const landingPages: Topic[] = [
     slug: "esl-crossword-maker",
     shortTitle: "ESL classroom puzzles",
     title: "ESL crossword maker",
+    sheetTitle: "Everyday English",
     type: "crossword",
     intro:
       "Build a crossword from your lesson vocabulary with short, concrete clues. Print it for a class and give each student a different version.",
@@ -610,6 +621,7 @@ export const landingPages: Topic[] = [
     slug: "christmas-word-search",
     shortTitle: "Christmas word search",
     title: "Christmas word search",
+    sheetTitle: "Christmas word search",
     type: "word-search",
     intro:
       "A ready Christmas word list you can print as-is or change. Add your own words, choose a difficulty and make a class set.",
@@ -651,6 +663,7 @@ export const landingPages: Topic[] = [
     slug: "halloween-word-search",
     shortTitle: "Halloween word search",
     title: "Halloween word search",
+    sheetTitle: "Halloween word search",
     type: "word-search",
     intro:
       "A Halloween word list that is spooky but suitable for the classroom. Edit the words, choose a difficulty and print one for each guest or student.",
@@ -692,6 +705,7 @@ export const landingPages: Topic[] = [
     slug: "thanksgiving-word-search",
     shortTitle: "Thanksgiving word search",
     title: "Thanksgiving word search",
+    sheetTitle: "Thanksgiving word search",
     type: "word-search",
     intro:
       "A Thanksgiving word list you can print as it is, or edit with your own table words. Pick the grid size and difficulty and print for a class or a family dinner.",
@@ -733,6 +747,7 @@ export const landingPages: Topic[] = [
     slug: "back-to-school-word-search",
     shortTitle: "Back-to-school puzzles",
     title: "Back-to-school word search",
+    sheetTitle: "Back to school",
     type: "word-search",
     intro:
       "A first-week word search with classroom words you can edit. Add your school's mascot and your own routines, and print a class set.",
@@ -774,6 +789,7 @@ export const landingPages: Topic[] = [
     slug: "baby-shower-crossword",
     shortTitle: "Baby shower crossword",
     title: "Baby shower crossword",
+    sheetTitle: "Baby shower crossword",
     type: "crossword",
     intro:
       "A baby shower crossword you can personalize with clues about the parents. Print one for each guest, with an answer key for the host.",
@@ -815,6 +831,7 @@ export const landingPages: Topic[] = [
     slug: "bridal-shower-word-search",
     shortTitle: "Bridal shower word search",
     title: "Bridal shower word search",
+    sheetTitle: "Bridal shower word search",
     type: "word-search",
     intro:
       "A bridal shower word search with wedding words and room for the couple's own. Print one per guest with a different arrangement and an answer key for the host.",
@@ -856,6 +873,7 @@ export const landingPages: Topic[] = [
     slug: "birthday-word-search",
     shortTitle: "Birthday word search",
     title: "Birthday word search",
+    sheetTitle: "Birthday word search",
     type: "word-search",
     intro:
       "A birthday word search with party words and room for the guest of honor's own. Pick a difficulty for the age group and print one per guest.",
@@ -897,6 +915,7 @@ export const landingPages: Topic[] = [
     slug: "word-search-generator",
     shortTitle: "Word search generator",
     title: "Word search generator",
+    sheetTitle: "Weather words",
     type: "word-search",
     intro:
       "Generate a word search from any list in seconds. Set the grid size, difficulty and seed, and get the same puzzle again whenever you need it.",
@@ -951,6 +970,7 @@ export const landingPages: Topic[] = [
     slug: "word-search-printable",
     shortTitle: "Printable word searches",
     title: "Printable word search maker",
+    sheetTitle: "Sports",
     type: "word-search",
     intro:
       "Make a word search that prints cleanly on a home or school printer. Download a black-and-white vector PDF on Letter or A4 with an optional answer key.",
@@ -1005,6 +1025,7 @@ export const landingPages: Topic[] = [
     slug: "crossword-puzzle-maker",
     shortTitle: "Crossword puzzle maker",
     title: "Crossword puzzle maker",
+    sheetTitle: "Landforms and water",
     type: "crossword",
     intro:
       "Write a list of answers and clues. Puzzleloom searches for a connected layout and tells you exactly which words did not fit.",
@@ -1059,6 +1080,7 @@ export const landingPages: Topic[] = [
     slug: "crossword-maker-with-answer-key",
     shortTitle: "Crosswords with answer keys",
     title: "Crossword maker with answer key",
+    sheetTitle: "Geometry review",
     type: "crossword",
     intro:
       "Make a crossword and print the solution with it. Append the key, download it as a separate PDF, or leave it out.",
@@ -1113,6 +1135,7 @@ export const landingPages: Topic[] = [
     slug: "printable-crossword-maker",
     shortTitle: "Printable crossword maker",
     title: "Printable crossword maker",
+    sheetTitle: "In the kitchen",
     type: "crossword",
     intro:
       "Make a crossword that prints cleanly in black and white. The preview and the PDF come from one layout, on Letter or A4.",
@@ -1165,8 +1188,9 @@ export const landingPages: Topic[] = [
   },
   {
     slug: "puzzlemaker",
-    shortTitle: "A puzzle for every word list",
+    shortTitle: "Puzzlemaker",
     title: "Puzzlemaker for word lists",
+    sheetTitle: "The human body",
     type: "crossword",
     intro:
       "One word list, four puzzle types. Switch between crossword, word search and scramble without retyping, and use the quote box for a cryptogram.",
@@ -1221,6 +1245,7 @@ export const landingPages: Topic[] = [
     slug: "word-scramble-generator",
     shortTitle: "Word scramble generator",
     title: "Word scramble generator",
+    sheetTitle: "Animals",
     type: "scramble",
     intro:
       "Generate scrambled words from any list. Scrambles use the original letters, are repeatable from a seed, and come with an answer key.",
@@ -1275,6 +1300,7 @@ export const landingPages: Topic[] = [
     slug: "puzzle-book-maker",
     shortTitle: "Puzzle book maker",
     title: "Puzzle book maker",
+    sheetTitle: "Camping trip",
     type: "word-search",
     intro:
       "Combine puzzles into one printable PDF book with the command-line book command. Make a small sample first, then add the answer keys at the back.",
@@ -1329,6 +1355,7 @@ export const landingPages: Topic[] = [
     slug: "word-search-book-generator",
     shortTitle: "Word search books for makers",
     title: "Word search book generator",
+    sheetTitle: "Dinosaurs",
     type: "word-search",
     intro:
       "Generate a whole book of word searches from original word lists. Use the CLI to make each puzzle, then combine them with answer keys at the back.",
