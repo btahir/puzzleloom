@@ -8,13 +8,15 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { inflateSync } from "node:zlib";
 import { Resvg } from "@resvg/resvg-js";
+import fontkit from "@pdf-lib/fontkit";
+import { mkdir } from "node:fs/promises";
 import {
   generate,
   DEFAULT_WORDS,
   type Input,
 } from "../../../packages/core/src/index";
 import { layoutPuzzle, toSVG } from "../../../packages/render/src/index";
-import { markSvg } from "../src/components/mark";
+import { markSvg, MARK_TILES } from "../src/components/mark";
 
 const root = resolve(import.meta.dirname, "../../..");
 const pub = resolve(root, "apps/web/public");
@@ -162,5 +164,93 @@ await writeFile(
     .replace(/\n\s*/g, "")
     .replace('width="180" height="180" ', "") + "\n",
 );
+
+// README wordmarks: outlined glyphs, so GitHub shows the real fonts without loading any.
+type Outline = {
+  unitsPerEm: number;
+  layout: (s: string) => {
+    glyphs: { path: { toSVG: () => string } }[];
+    positions: { xAdvance: number }[];
+  };
+};
+const serif = fontkit.create(await readFile(serifPath)) as unknown as Outline;
+const sans = fontkit.create(
+  await readFile(
+    resolve(root, "assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
+  ),
+) as unknown as Outline;
+/** Outlined text as SVG paths; returns the markup and the advance width. */
+function outline(
+  font: Outline,
+  text: string,
+  size: number,
+  x: number,
+  baseline: number,
+  fill: string,
+  center = false,
+) {
+  const run = font.layout(text),
+    k = size / font.unitsPerEm,
+    width = run.positions.reduce((w, p) => w + p.xAdvance, 0) * k;
+  let pen = center ? x - width / 2 : x;
+  const paths = run.glyphs.map((g, i) => {
+    const d = `<path transform="translate(${pen.toFixed(2)} ${baseline}) scale(${k} ${-k})" d="${g.path.toSVG()}"/>`;
+    pen += run.positions[i].xAdvance * k;
+    return d;
+  });
+  return { svg: `<g fill="${fill}">${paths.join("")}</g>`, width };
+}
+function wordmark(c: {
+  ink: string;
+  paper: string;
+  shared: string;
+  sharedInk: string;
+}) {
+  const tile = 26,
+    stroke = 2.4,
+    half = stroke / 2;
+  const tiles = MARK_TILES.map((t) => {
+    const tx = t.x * tile + half,
+      ty = t.y * tile + half;
+    return `<rect x="${tx}" y="${ty}" width="${tile}" height="${tile}" fill="${t.shared ? c.shared : c.paper}" stroke="${c.ink}" stroke-width="${stroke}"/>${
+      outline(
+        sans,
+        t.letter,
+        tile * 0.6,
+        tx + tile / 2,
+        ty + tile * 0.75,
+        t.shared ? c.sharedInk : c.ink,
+        true,
+      ).svg
+    }`;
+  }).join("");
+  const name = outline(
+    serif,
+    "Puzzleloom",
+    60,
+    tile * 3 + stroke + 22,
+    62,
+    c.ink,
+  );
+  const w = Math.ceil(tile * 3 + stroke + 22 + name.width + 4),
+    h = tile * 3 + stroke;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Puzzleloom">${tiles}${name.svg}</svg>\n`;
+}
+await mkdir(resolve(pub, "brand"), { recursive: true });
+await writeFile(
+  resolve(pub, "brand/wordmark.svg"),
+  wordmark({ ink, paper: "#ffffff", shared: yellow, sharedInk: ink }),
+);
+await writeFile(
+  resolve(pub, "brand/wordmark-night.svg"),
+  wordmark({
+    ink: "#edebe3",
+    paper: "#26352f",
+    shared: "#ebcb76",
+    sharedInk: "#1e2a26",
+  }),
+);
 await rm(fontDir, { recursive: true });
-console.log("Wrote og.png, apple-touch-icon.png, icon-32.png and favicon.svg");
+console.log(
+  "Wrote og.png, apple-touch-icon.png, icon-32.png, favicon.svg and brand wordmarks",
+);
