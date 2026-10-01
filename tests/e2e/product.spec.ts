@@ -703,3 +703,140 @@ test("Download PDF is reachable at 1024x768", async ({ page }) => {
     page.getByRole("button", { name: "Download PDF", exact: true }),
   ).toBeInViewport({ ratio: 1 });
 });
+test("hovering the selected segment keeps its label readable", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await ready(page);
+  const key = page.getByRole("button", { name: "Answer key", exact: true });
+  await key.click();
+  await key.hover();
+  const auto = page.getByRole("radio", { name: "Auto" });
+  for (const el of [key, auto]) {
+    if (el === auto) await auto.hover();
+    const [color, background] = await el.evaluate((b) => {
+      const s = getComputedStyle(b);
+      return [s.color, s.backgroundColor];
+    });
+    expect(color).not.toBe(background);
+    expect(background).not.toBe(
+      await page.evaluate(() =>
+        getComputedStyle(document.body).getPropertyValue("--desk").trim(),
+      ),
+    );
+  }
+});
+test("landing presets set the maker options", async ({ page }) => {
+  await page.goto("/large-print-word-search-maker/");
+  await ready(page);
+  await expect(page.getByLabel("Text size")).toHaveValue("XL");
+  await expect(page.getByLabel("Difficulty")).toHaveValue("easy");
+  await expect(page.getByRole("radio", { name: "Custom" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.locator(".range-row output")).toHaveText("10 × 10");
+  await expect(page.getByLabel("Puzzle title", { exact: true })).toHaveValue(
+    "Large print word search",
+  );
+});
+test("downloads are named after the puzzle and new puzzles get their own ID", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await ready(page);
+  let event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+  expect((await event).suggestedFilename()).toBe("in-the-garden-crossword.pdf");
+  const starterId = await page
+    .locator(".paper svg")
+    .evaluate((svg) => svg.textContent?.match(/PL-[0-9A-Z]+/)?.[0]);
+  await page
+    .getByLabel("Words and clues")
+    .fill(
+      "PLANET: Orbits a star\nORBIT: Path around a planet\nCOMET: Icy body with a tail\nMETEOR: Shooting star",
+    );
+  await ready(page);
+  await page
+    .getByLabel("Puzzle title", { exact: true })
+    .fill("Week 3 spelling");
+  await ready(page);
+  const shownId = await page
+    .locator(".paper svg")
+    .evaluate((svg) => svg.textContent?.match(/PL-[0-9A-Z]+/)?.[0]);
+  expect(shownId).toBeTruthy();
+  expect(shownId).not.toBe(starterId);
+  event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PDF", exact: true }).click();
+  expect((await event).suggestedFilename()).toBe(
+    "week-3-spelling-crossword.pdf",
+  );
+  await page.getByText("More exports & import", { exact: true }).click();
+  event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Project file", exact: true }).click();
+  const project = JSON.parse(
+    await readFile((await (await event).path())!, "utf8"),
+  );
+  expect(project.id).toBe(shownId);
+});
+for (const [w, h] of [
+  [1440, 900],
+  [1024, 768],
+]) {
+  test(`crossword player fits the grid and Check buttons at ${w}x${h}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto(
+      "/play/#" + encode(generate({ type: "crossword", seed: 42 })),
+    );
+    const gridBox = await page.locator(".play-grid").boundingBox();
+    expect(gridBox!.y + gridBox!.height).toBeLessThanOrEqual(h);
+    await expect(
+      page.getByRole("button", { name: "Check puzzle", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+  });
+}
+test("word search shows a live stroke while dragging", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1100 });
+  const p = generate({
+    type: "word-search",
+    words: "GARDEN\nEARTH",
+    seed: 42,
+    options: { size: 8, difficulty: "easy" },
+  });
+  await page.goto("/play/#" + encode(p));
+  const a = await page.locator('[data-xy="0,0"]').boundingBox(),
+    b = await page.locator('[data-xy="3,0"]').boundingBox();
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2, {
+    steps: 4,
+  });
+  await expect(page.locator(".found-strokes line.pending")).toHaveCount(1);
+  await page.mouse.up();
+  await expect(page.locator(".found-strokes line.pending")).toHaveCount(0);
+});
+test("Enlarge shows the sheet at print size on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await ready(page);
+  await page.getByRole("button", { name: "Enlarge", exact: true }).click();
+  const sheet = page.getByRole("dialog").locator(".paper").first();
+  expect((await sheet.boundingBox())!.width).toBeGreaterThanOrEqual(800);
+  await expect(page.getByRole("dialog")).toContainText("Drag to move");
+});
+test("bare play page and short pages behave", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/play/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Play a puzzle",
+  );
+  for (const path of ["/play/", "/no-such-page/"]) {
+    await page.goto(path);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+      path,
+    ).toBeLessThanOrEqual(900);
+  }
+});
