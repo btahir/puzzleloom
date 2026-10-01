@@ -46,10 +46,8 @@ Sharp and its LGPL libvips binaries are omitted because this static app does not
 - OpenDyslexic Regular: Abbie Gonzalez. Source https://github.com/antijingoist/opendyslexic at `1824da5c0e41dc3e13ffc7f3a636dcaf695d61b7`; original `compiled/OpenDyslexic-Regular.otf`. OFL notice retained in `assets/fonts/OpenDyslexic-OFL.txt`. Embedded without subsetting. The npm web-font files are also shipped unmodified. No claim is made about improved reading outcomes.
 - Young Serif: Bastien Sozeau. The unmodified Fontsource distribution is used for headings, under OFL-1.1.
 
-## Generated desk illustration
+## Logo, icons and social card
 
-`apps/web/public/desk-art.png`: original image generated with OpenAI image generation for this product. No stock photography, brands, or real people. The illustrative puzzle is decorative; functional puzzle layouts are always rendered from the actual engine.
-
-Prompt: “Create an original elegant editorial illustration for Puzzleloom, a free printable word puzzle maker. Wide landscape 1536x1024 composition. A warm cream paper teacher's desktop with a sheet of a simple black outlined crossword and a small sheet of word-search letters on the right half, a short golden yellow pencil and a tiny deep blue paper clip. Handmade printmaking / cut-paper illustration, crisp geometry, subtle paper grain, restrained warm white, dark ink, muted blue and pencil yellow. On the left half leave abundant clear cream negative space for a headline to be added in code. No text titles, no logos, no watermarks, no real people or brands, no gradients, no 3D gloss. It should feel calm, useful, sophisticated and welcoming.”
+The PEN/PAD tile mark, favicon, app icons and the 1200×630 social card (`apps/web/public/og.png`) are drawn in code by `apps/web/scripts/social.ts` from the real puzzle engine output. No generated or stock imagery.
 
 Screenshots and animated previews are captures of the real product, generated locally with Playwright and ffmpeg. Launch media is ignored by Git per AGENTS.md.
