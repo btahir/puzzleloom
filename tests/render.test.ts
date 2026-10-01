@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generate, TYPES, variants } from "../packages/core/src/index";
+import { generate, letters, TYPES, variants } from "../packages/core/src/index";
 import {
   layoutPuzzle,
   toSVG,
@@ -282,6 +282,98 @@ describe("sheet layout uses the page", () => {
         `x="${item.x}" y="${item.y + item.size * 0.85}"`,
       );
     }
+  });
+  it("keeps a short large-print cryptogram to one puzzle page and one key page", () => {
+    for (const paper of ["letter", "a4"] as const)
+      for (const quote of [
+        undefined,
+        "Make a little room for something new today, friends.",
+      ]) {
+        const p = generate({
+          type: "cryptogram",
+          title: "Secret message",
+          quote,
+          seed: 4317,
+          options: { fontSize: "XL", paper, givenLetters: 2 },
+        });
+        expect(p.quote.length).toBeLessThanOrEqual(60);
+        const pages = layoutPuzzle(p),
+          key = layoutPuzzle(p, true);
+        expect([pages.length, key.length]).toEqual([1, 1]);
+        inBounds([...pages, ...key]);
+        const all = texts(key).map((t) => t.text);
+        expect(all).toContain("Letter key");
+        expect(all).toContain("Message");
+        // Large print stays large: the answer letters are at least 18 pt.
+        const answerLetter = texts(key).find(
+          (t) =>
+            t.align === "center" &&
+            t.text === letters(p.quote.toUpperCase())[0],
+        )!;
+        expect(answerLetter.size).toBeGreaterThanOrEqual(18);
+      }
+    // Longer quotes still paginate rather than clip.
+    const long = generate({
+      type: "cryptogram",
+      quote:
+        "The best way to learn something new is to teach it to somebody else, slowly and with patience, one small step at a time.",
+      seed: 5,
+      options: { fontSize: "XL", font: "opendyslexic" },
+    });
+    for (const answer of [false, true]) {
+      const sheets = layoutPuzzle(long, answer);
+      expect(sheets.length).toBeGreaterThan(1);
+      inBounds(sheets);
+    }
+  });
+  it("drops the small type label when the title already names the type", () => {
+    const label = (
+      type: (typeof TYPES)[number],
+      title: string,
+      answer = false,
+    ) =>
+      layoutPuzzle(generate({ type, title, seed: 1 }), answer)[0].items.some(
+        (i) =>
+          i.kind === "text" &&
+          ["CROSSWORD", "WORD SEARCH", "WORD SCRAMBLE", "CRYPTOGRAM"].includes(
+            i.text,
+          ),
+      );
+    expect(label("crossword", "Crossword")).toBe(false);
+    expect(label("word-search", "Christmas word search")).toBe(false);
+    expect(label("word-search", "Christmas Word-Search", true)).toBe(false);
+    expect(label("scramble", "Spelling scramble")).toBe(false);
+    expect(label("cryptogram", "Cryptogram")).toBe(false);
+    expect(label("crossword", "In the garden")).toBe(true);
+    expect(label("word-search", "In the garden", true)).toBe(true);
+    // The answer-key box never collides with a long title on the same row.
+    const key = layoutPuzzle(
+      generate({
+        type: "crossword",
+        title: "A rather long crossword title about plants and their parts",
+        seed: 1,
+      }),
+      true,
+    )[0];
+    const box = key.items.find((i) => i.kind === "rect" && !i.fill)!;
+    for (const t of texts([key]).filter((t) => t.size > 20))
+      expect(t.x + textWidth(t.text, t.size, key.font)).toBeLessThan(box.x);
+  });
+  it("scales crossword clue numbers with the text size", () => {
+    const numberSize = (fontSize: "S" | "M" | "L" | "XL") => {
+      const p = generate({
+        type: "crossword",
+        seed: 4317,
+        options: { fontSize },
+      });
+      return texts(layoutPuzzle(p)).find(
+        (t) => t.text === "1" && t.align === "left",
+      )!.size;
+    };
+    const sizes = (["S", "M", "L", "XL"] as const).map(numberSize);
+    expect(sizes[3]).toBeGreaterThanOrEqual(9.5);
+    for (let i = 1; i < sizes.length; i++)
+      expect(sizes[i]).toBeGreaterThan(sizes[i - 1]);
   });
   it("lays out the same puzzle identically every time", () => {
     for (const type of TYPES) {

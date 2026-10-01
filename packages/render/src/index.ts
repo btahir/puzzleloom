@@ -123,6 +123,7 @@ function wrap(
  * - glyph: grid letter size as a share of the cell. Bigger options use a
  *   bigger share, so large print grows even when the page limits the cell.
  * - floor: large print refuses grids whose letters would fall below this.
+ * - num: crossword clue-number size inside cells (capped by the cell).
  * - comfy: below this, a word search gives its page to the grid and starts
  *   the word bank overleaf.
  */
@@ -135,6 +136,7 @@ const SCALE = {
     glyph: 0.54,
     floor: 0,
     comfy: 7.5,
+    num: 7.5,
   },
   M: {
     body: 12,
@@ -144,6 +146,7 @@ const SCALE = {
     glyph: 0.58,
     floor: 0,
     comfy: 8,
+    num: 8.5,
   },
   L: {
     body: 14.5,
@@ -153,6 +156,7 @@ const SCALE = {
     glyph: 0.64,
     floor: 11,
     comfy: 13,
+    num: 9.5,
   },
   XL: {
     body: 18,
@@ -162,6 +166,7 @@ const SCALE = {
     glyph: 0.72,
     floor: 14,
     comfy: 18,
+    num: 11,
   },
 } as const;
 const LABELS: Record<Puzzle["type"], string> = {
@@ -169,6 +174,13 @@ const LABELS: Record<Puzzle["type"], string> = {
   "word-search": "WORD SEARCH",
   scramble: "WORD SCRAMBLE",
   cryptogram: "CRYPTOGRAM",
+};
+/** The type's name as it would appear in a title. */
+const TYPE_WORDS: Record<Puzzle["type"], string> = {
+  crossword: "crossword",
+  "word-search": "word search",
+  scramble: "scramble",
+  cryptogram: "cryptogram",
 };
 /** Page geometry shared by the layout and the class-set page numbers. */
 const MARGIN = 48,
@@ -251,23 +263,29 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
     return headingHeight;
   };
 
+  // The small type label is dropped when the title already names the type
+  // ("Christmas word search" needs no "WORD SEARCH" above it).
+  const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}]/gu, ""),
+    kickerShown = !squash(p.title).includes(squash(TYPE_WORDS[p.type])),
+    keyW = textWidth("ANSWER KEY", 9.5, font) + 14,
+    // Without a label row the answer-key box shares the title's row.
+    titleW = answer && !kickerShown ? W - keyW - 16 : W;
   const page = (continued = false) => {
     sheet = { width, height, font, items: [], id: p.id, answer };
     pages.push(sheet);
     y = TOP;
     const kicker = 9;
-    text(LABELS[p.type], left, y + kicker, kicker);
+    if (kickerShown) text(LABELS[p.type], left, y + kicker, kicker);
     if (answer) {
-      const w = textWidth("ANSWER KEY", 9.5, font);
-      box(right - w - 14, y - 4, w + 14, 9.5 + 8, true, undefined, 0.9);
+      box(right - keyW, y - 4, keyW, 9.5 + 8, true, undefined, 0.9);
       text("ANSWER KEY", right - 7, y + 9.5 - 0.5, 9.5, "right");
     }
-    y += kicker + 12;
+    if (kickerShown) y += kicker + 12;
     if (continued) {
       const t = 16;
-      const lines = wrap(p.title, W - 90, t, font);
+      const lines = wrap(p.title, titleW - 90, t, font);
       text(lines[0] + (lines.length > 1 ? "…" : ""), left, y + t, t);
-      text("continued", right, y + t, 10, "right");
+      text("continued", left + titleW, y + t, 10, "right");
       y += t * 1.3 + 6;
       rule(left, y, right, 1);
       y += size * 1.4;
@@ -275,7 +293,7 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
       return;
     }
     const t = scale.title;
-    for (const line of wrap(p.title, W, t, font)) {
+    for (const line of wrap(p.title, titleW, t, font)) {
       text(line, left, y + t * 0.9, t);
       y += t * 1.18;
     }
@@ -481,11 +499,19 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
             ncols === 2
               ? Math.max(...groupH)
               : Math.ceil(sum / ncols) + headingHeight,
-          onePage = Math.min(
-            maxCell,
-            W / cols,
-            (bottom - y - gapAfter - cluesH - bankH - 4) / rows,
-          );
+          gridRoom = bottom - y - gapAfter - cluesH - bankH - 4,
+          // Small text leaves much of the page bare under a short list, so
+          // at S the cells grow until about a sixth of the page is left, up
+          // to the M-to-L range. (Larger sizes keep their cap so M and XL
+          // grids stay comparable.)
+          cap =
+            p.options.fontSize === "S"
+              ? Math.max(
+                  maxCell,
+                  Math.min(maxCell * 1.3, (gridRoom - (bottom - y) / 6) / rows),
+                )
+              : maxCell,
+          onePage = Math.min(cap, W / cols, gridRoom / rows);
         return { ncols, colW, groups, groupH, sum, cluesH, onePage };
       },
       // Key lists are just "number. WORD", so when two columns crowd the
@@ -545,7 +571,7 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
         ? left + (W - sideW - gutter - cols * cell) / 2
         : left + (W - cols * cell) / 2,
       gy = y,
-      numSize = round(Math.min(10, Math.max(6.5, cell * 0.25))),
+      numSize = round(Math.max(6, Math.min(scale.num, cell * 0.3))),
       gs = round(gridGlyph(cell, scale.glyph));
     const starts = new Map(
       p.placements.map((q) => [`${q.x},${q.y}`, q.number]),
@@ -686,9 +712,16 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
     const build = (
       colW: number,
       force = false,
+      spread = 0,
     ): { blocks: Block[]; inline: boolean } | undefined => {
-      const inlineX = indent + scrW + size * 1.6,
-        inlinePitch = Math.min(pitch, (colW - inlineX) / maxLen),
+      // A full-width column puts the answers in the right-hand part of the
+      // measure with roomier blanks, so the rows read across the page.
+      const wide = colW > W * 0.9,
+        inlineX = Math.max(indent + scrW + size * 1.6, wide ? colW * 0.4 : 0),
+        inlinePitch = Math.min(
+          wide ? size * 2.5 : pitch,
+          (colW - inlineX) / maxLen,
+        ),
         inline = inlinePitch >= minPitch,
         answerX = inline ? inlineX : indent,
         stackedPitch = Math.min(pitch, (colW - indent) / maxLen);
@@ -705,7 +738,8 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
           h:
             rowH * (1 + answerRows) +
             clue.length * clueSize * 1.4 +
-            size * (clue.length ? 1.1 : 0.5),
+            size * (clue.length ? 1.1 : 0.5) +
+            spread,
           draw: (x, yy) => {
             const base = yy + ss * 1.45;
             text(`${i + 1}.`, x + numW, base, ss, "right");
@@ -744,8 +778,16 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
     // blanks beside the scrambled word; then two columns; then one column.
     const one = build(W, true)!,
       two = build((W - 32) / 2),
-      total = one.blocks.reduce((s, b) => s + b.h, 0);
-    if (total <= bottom - y || !two) flow(one.blocks, 1);
+      total = one.blocks.reduce((s, b) => s + b.h, 0),
+      // A short list that fits gets its spare height shared between rows
+      // (up to most of a row), instead of leaving the bottom of the page bare.
+      spread = Math.min(
+        ((bottom - y - total) / p.entries.length) * 0.8,
+        rowH * 0.9,
+      );
+    if (total <= bottom - y)
+      flow(build(W, true, Math.max(0, spread))!.blocks, 1);
+    else if (!two) flow(one.blocks, 1);
     else if (two.inline || !one.inline) flow(two.blocks, 2, 32);
     else flow(one.blocks, 1);
   }
@@ -754,27 +796,25 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
     const plain = letters(p.quote.toUpperCase()),
       encoded = letters(p.encoded),
       decode = new Map(Object.entries(p.cipher).map(([a, b]) => [b, a])),
-      cw = round(size * (dyslexic ? 2.2 : 2)),
-      punctW = size * 0.8,
-      as = round(size * 1.3),
-      cs = round(size * 1.05),
-      rowH = as * 1.45 + cs * 1.3 + size * 1.1,
-      isLetter = (c: string) => /\p{L}/u.test(c);
-    if (p.given.length) {
-      const gs = round(size * 0.95);
-      const lines = wrap(
-        "Given: " + p.given.map((c) => `${p.cipher[c]} = ${c}`).join(",  "),
-        W,
-        gs,
-        font,
-      );
-      for (const l of lines) {
-        text(l, left, y + gs, gs);
-        y += gs * 1.4;
-      }
-      y += size * 0.8;
-    }
-    // Split into words (keeping their indexes) and wrap at word boundaries.
+      codes = [...new Set(Object.values(p.cipher))].sort(),
+      isLetter = (c: string) => /\p{L}/u.test(c),
+      gs = round(size * 0.95),
+      givenLines = p.given.length
+        ? wrap(
+            "Given: " + p.given.map((c) => `${p.cipher[c]} = ${c}`).join(",  "),
+            W,
+            gs,
+            font,
+          )
+        : [],
+      givenH = givenLines.length
+        ? givenLines.length * gs * 1.4 + size * 0.8
+        : 0,
+      messageLines = answer ? wrap(p.quote, W, size, font) : [],
+      messageH = answer
+        ? headingHeight + messageLines.length * lead + size * 0.8
+        : 0;
+    // Split into words (keeping their indexes) so lines wrap between words.
     const words: { from: number; to: number }[] = [];
     for (let i = 0; i < encoded.length;) {
       if (encoded[i] === " ") {
@@ -786,67 +826,130 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
       words.push({ from: i, to: j });
       i = j;
     }
-    const charW = (c: string) => (isLetter(c) ? cw : punctW);
-    const lines: { from: number; to: number }[][] = [[]];
-    let lineW = 0;
-    const space = cw * 0.75;
-    for (const w of words) {
-      let ww = 0;
-      for (let i = w.from; i < w.to; i++) ww += charW(encoded[i]);
-      if (lineW > 0 && lineW + space + ww > W) {
-        lines.push([]);
-        lineW = 0;
-      }
-      if (ww > W) {
-        // A single word wider than the line: split it.
-        let start = w.from,
-          acc = 0;
-        for (let i = w.from; i < w.to; i++) {
-          if (acc + charW(encoded[i]) > W - lineW) {
-            lines.at(-1)!.push({ from: start, to: i });
-            lines.push([]);
-            lineW = 0;
-            start = i;
-            acc = 0;
-          }
-          acc += charW(encoded[i]);
+    /**
+     * Metrics for one density: `k` scales the letters, `rowK` the row pitch
+     * and `stripK` the letter-key cells. Returns the total height too, so we
+     * can pick the roomiest density that keeps the sheet on one page.
+     */
+    const measure = (k: number, rowK: number, stripK: number) => {
+      const cw = round(size * k * (dyslexic ? 2.2 : 2)),
+        punctW = size * k * 0.8,
+        as = round(size * k * 1.3),
+        cs = round(size * k * 1.05),
+        rowH = (as * 1.45 + cs * 1.3 + size * 1.1) * rowK,
+        space = cw * 0.75,
+        charW = (c: string) => (isLetter(c) ? cw : punctW),
+        lines: { from: number; to: number }[][] = [[]];
+      let lineW = 0;
+      for (const w of words) {
+        let ww = 0;
+        for (let i = w.from; i < w.to; i++) ww += charW(encoded[i]);
+        if (lineW > 0 && lineW + space + ww > W) {
+          lines.push([]);
+          lineW = 0;
         }
-        lines.at(-1)!.push({ from: start, to: w.to });
-        lineW = acc;
-        continue;
+        if (ww > W) {
+          // A single word wider than the line: split it.
+          let start = w.from,
+            acc = 0;
+          for (let i = w.from; i < w.to; i++) {
+            if (acc + charW(encoded[i]) > W - lineW) {
+              lines.at(-1)!.push({ from: start, to: i });
+              lines.push([]);
+              lineW = 0;
+              start = i;
+              acc = 0;
+            }
+            acc += charW(encoded[i]);
+          }
+          lines.at(-1)!.push({ from: start, to: w.to });
+          lineW = acc;
+          continue;
+        }
+        lines.at(-1)!.push(w);
+        lineW += (lineW > 0 ? space : 0) + ww;
       }
-      lines.at(-1)!.push(w);
-      lineW += (lineW > 0 ? space : 0) + ww;
+      const rowsN = Math.ceil(
+          codes.length / Math.max(1, Math.floor(W / (size * 2 * stripK))),
+        ),
+        perRow = Math.ceil(codes.length / rowsN),
+        sw = Math.min(W / perRow, size * 2.4 * stripK),
+        stripH = size * 0.6 + headingHeight + rowsN * (sw * 2 + 8);
+      return {
+        cw,
+        punctW,
+        as,
+        cs,
+        rowH,
+        space,
+        charW,
+        lines,
+        rowsN,
+        perRow,
+        sw,
+        stripH,
+        total: messageH + givenH + lines.length * rowH + stripH,
+      };
+    };
+    // Roomiest first. Short quotes in S-L get a little more size; anything
+    // that would spill onto another page tightens rows and the letter key
+    // before it paginates.
+    const densities: [number, number, number][] = [
+      ...(p.options.fontSize === "XL"
+        ? []
+        : ([
+            [1.3, 1.3, 1.15],
+            [1.3, 1, 1],
+            [1.15, 1, 1],
+          ] as [number, number, number][])),
+      [1, 1, 1],
+      [1, 0.86, 0.8],
+      [0.94, 0.8, 0.7],
+      [0.88, 0.76, 0.62],
+    ];
+    const m =
+      densities
+        .map(([k, rowK, stripK]) => measure(k, rowK, stripK))
+        .find((d) => d.total <= bottom - y) ?? measure(1, 1, 1);
+    if (answer) {
+      y += heading("Message", left, y, W);
+      for (const l of messageLines) {
+        if (y + lead > bottom) page(true);
+        text(l, left, y + size, size);
+        y += lead;
+      }
+      y += size * 0.8;
     }
-    for (const line of lines) {
-      if (y + rowH > bottom) page(true);
+    for (const l of givenLines) {
+      text(l, left, y + gs, gs);
+      y += gs * 1.4;
+    }
+    if (givenLines.length) y += size * 0.8;
+    for (const line of m.lines) {
+      if (y + m.rowH > bottom) page(true);
       let x = left;
-      const ab = y + as * 1.3,
-        cb = ab + cs * 1.55;
+      const ab = y + m.as * 1.3,
+        cb = ab + m.cs * 1.55;
       line.forEach((w, k) => {
-        if (k > 0) x += space;
+        if (k > 0) x += m.space;
         for (let i = w.from; i < w.to; i++) {
           const c = encoded[i];
           if (isLetter(c)) {
-            rule(x + 2, ab + 3, x + cw - 2, 0.9);
+            rule(x + 2, ab + 3, x + m.cw - 2, 0.9);
             if (answer || p.given.includes(plain[i]))
-              text(plain[i], x + cw / 2, ab, as, "center");
-            text(c, x + cw / 2, cb + 0.5, cs, "center");
-          } else text(c, x + punctW / 2, ab, as, "center");
-          x += charW(c);
+              text(plain[i], x + m.cw / 2, ab, m.as, "center");
+            text(c, x + m.cw / 2, cb + 0.5, m.cs, "center");
+          } else text(c, x + m.punctW / 2, ab, m.as, "center");
+          x += m.charW(c);
         }
       });
-      y += rowH;
+      y += m.rowH;
     }
     // Letter key strip: code letters with a box to note what each stands for.
-    const codes = [...new Set(Object.values(p.cipher))].sort(),
-      rowsN = Math.ceil(codes.length / Math.floor(W / (size * 2))),
-      perRow = Math.ceil(codes.length / rowsN),
-      sw = Math.min(W / perRow, size * 2.4),
-      ls = round(Math.min(sw * 0.5, size)),
-      stripH = rowsN * (sw * 2 + 8);
+    const { sw, rowsN, perRow } = m,
+      ls = round(Math.min(sw * 0.55, size * 1.1));
     y += size * 0.6;
-    if (y + headingHeight + stripH + size > bottom) page(true);
+    if (y + m.stripH - size * 0.6 > bottom) page(true);
     y += heading("Letter key", left, y, W);
     for (let rI = 0; rI < rowsN; rI++) {
       const row = codes.slice(rI * perRow, (rI + 1) * perRow),
@@ -861,18 +964,6 @@ export function layoutPuzzle(p: Puzzle, answer = false): Sheet[] {
           cellLetter(known, x + sw / 2, y + sw * 1.5, ls);
       });
       y += sw * 2 + 8;
-    }
-    if (answer) {
-      y += size;
-      const qs = size;
-      const qLines = wrap(p.quote, W, qs, font);
-      if (y + headingHeight + qLines.length * lead > bottom) page(true);
-      y += heading("Message", left, y, W);
-      for (const l of qLines) {
-        if (y + lead > bottom) page(true);
-        text(l, left, y + qs, qs);
-        y += lead;
-      }
     }
   }
 
