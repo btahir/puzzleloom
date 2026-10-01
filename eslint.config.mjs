@@ -9,6 +9,7 @@ export default ts.config(
       "**/next-env.d.ts",
       "**/test-results/**",
       "**/playwright-report/**",
+      "docs/launch/**",
     ],
   },
   js.configs.recommended,
