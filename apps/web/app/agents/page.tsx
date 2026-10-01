@@ -1,36 +1,36 @@
 import { copy } from "../../src/content/ui";
-export const metadata = { title: "Puzzleloom for agents" };
+import { pageMeta } from "../../src/config/meta";
+export const metadata = pageMeta({
+  title: "CLI and MCP for AI assistants",
+  description:
+    "Drive Puzzleloom from an AI assistant: a deterministic CLI and a local MCP server make crosswords and word searches, print PDFs and check answer keys.",
+  path: "/agents/",
+});
 export default function Page() {
   return (
     <article className="content-page prose">
-      <p className="eyebrow">{copy.bringTheWordsWellBringTheGrid}</p>
-      <h1>
-        {copy.aPuzzleEngine} <br />
-        {copy.yourAgentCanUse}{" "}
-      </h1>
-      <p className="lead">{copy.theCliLocalMcpServerAndWeb} </p>
-      <h2>{copy.makeAPrintablePuzzle}</h2>
+      <h1>{copy.agentsTitle}</h1>
+      <p className="lead">{copy.agentsLead}</p>
+      <h2>{copy.agentsCliHeading}</h2>
       <pre>
-        <code>{copy.pnpmPuzzleloomMakeCrosswordWordsWordstxtSeed}</code>
+        <code>{copy.agentsCli}</code>
       </pre>
-      <p>{copy.wordFilesAcceptOneWordPerLine} </p>
-      <h2>{copy.connectThroughMcp}</h2>
+      <p>{copy.agentsCliNote}</p>
+      <h2>{copy.agentsMcpHeading}</h2>
       <p>
-        {copy.runTheLocalStdioServerWith} <code>{copy.pnpmMcp}</code>
-        {copy.fromTheRepositoryToolsCreatepuzzleValidatepuzzleRenderpdf}{" "}
+        {copy.agentsMcpBefore} <code>{copy.agentsMcpCommand}</code>
+        {copy.agentsMcpAfter}
       </p>
-      <h2>{copy.openHandoffs}</h2>
+      <h2>{copy.agentsHandoffHeading}</h2>
       <p>
-        {copy.projectFilesUseThe}{" "}
-        <a href="/puzzleloom.schema.json">
-          {copy.puzzleloompuzzlev1JsonSchema}
-        </a>
-        {copy.importOneInTheMakerOrOpen}{" "}
+        {copy.agentsHandoffBefore}{" "}
+        <a href="/puzzleloom.schema.json">{copy.agentsSchemaLink}</a>
+        {copy.agentsHandoffAfter}
       </p>
-      <h2>{copy.predictableResults}</h2>
-      <p>{copy.theSameWordsOptionsAndSeedProduce} </p>
+      <h2>{copy.agentsDeterminismHeading}</h2>
+      <p>{copy.agentsDeterminism}</p>
       <p>
-        <a href="/llms.txt">{copy.readTheCompactAgentReference}</a>
+        <a href="/llms.txt">{copy.agentsLlmsLink}</a>
       </p>
     </article>
   );

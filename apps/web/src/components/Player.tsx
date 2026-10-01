@@ -1,6 +1,7 @@
 "use client";
 import { copy } from "../content/ui";
 
+import { Arrow } from "./Icon";
 import { useEffect, useRef, useState } from "react";
 import {
   decode,
@@ -46,17 +47,17 @@ export default function Player() {
   if (error)
     return (
       <div className="content-page">
-        <h1>{copy.thisPuzzleLinkNeedsAnotherLook}</h1>
+        <h1>{copy.playLinkBroken}</h1>
         <p role="alert">{error}</p>
         <a className="button" href="/">
-          {copy.makeAPuzzle}{" "}
+          {copy.makeAPuzzle}
         </a>
       </div>
     );
   if (!p)
     return (
       <div className="content-page">
-        <p>{copy.openingYourPuzzle}</p>
+        <p>{copy.openingPuzzle}</p>
       </div>
     );
   const puzzle = p;
@@ -89,8 +90,8 @@ export default function Player() {
     if (puzzle.type === "word-search") {
       setMessage(
         done
-          ? copy.everyWordFoundNicelyDone
-          : `${found.length} of ${puzzle.entries.length} words found.`,
+          ? copy.everyWordFound
+          : `${copy.wordsFound(found.length, puzzle.entries.length)}.`,
       );
       return;
     }
@@ -116,10 +117,14 @@ export default function Player() {
     ).length;
     setMessage(
       right === keys.length
-        ? scope === copy.all
-          ? copy.allCorrectNicelyDone
-          : copy.thatLooksRight
-        : `${right} of ${keys.length} ${puzzle.type === copy.scramble ? copy.words : copy.letters} correct. Keep going.`,
+        ? scope === "all"
+          ? copy.allCorrect
+          : copy.thatsRight
+        : copy.keepGoing(
+            right,
+            keys.length,
+            puzzle.type === "scramble" ? copy.wordsUnit : copy.lettersUnit,
+          ),
     );
   }
   function select(x: number, y: number, from?: [number, number]) {
@@ -141,8 +146,8 @@ export default function Player() {
     });
     if (match) {
       setFound((f) => [...new Set([...f, match.word])]);
-      setMessage(`${match.word} found.`);
-    } else setMessage(copy.noWordThereYetSelectFromThe);
+      setMessage(copy.wordFound(match.word));
+    } else setMessage(copy.noWordThere);
     setStart(null);
   }
   function focus(x: number, y: number) {
@@ -181,26 +186,28 @@ export default function Player() {
     );
   return (
     <section className="player content-page">
-      <div className="eyebrow">
-        {copy.aLittleChallengeForYou} {LABELS[p.type]}
-      </div>
+      <p className="player-type">{LABELS[p.type]}</p>
       <h1>{p.title}</h1>
       <p>{p.instructions}</p>
       <div className="player-meta">
         <span>{p.id}</span>
         <span>
-          {p.type === copy.wordsearch
-            ? `${found.length} / ${p.entries.length} words found`
-            : `${correct} / ${total} ${p.type === copy.scramble ? copy.words : copy.letters} correct`}
+          {p.type === "word-search"
+            ? copy.wordsFound(found.length, p.entries.length)
+            : copy.correctCount(
+                correct,
+                total,
+                p.type === "scramble" ? copy.wordsUnit : copy.lettersUnit,
+              )}
         </span>
       </div>
-      {(p.type === copy.crossword || p.type === copy.wordsearch) && (
+      {(p.type === "crossword" || p.type === "word-search") && (
         <div className="player-layout">
           <div>
             <p className="help">
-              {p.type === copy.crossword
-                ? copy.typeALetterArrowKeysMoveSpace
-                : copy.dragAcrossAWordOrChooseIts}
+              {p.type === "crossword"
+                ? copy.crosswordHelp
+                : copy.wordSearchHelp}
             </p>
             <div
               ref={grid}
@@ -223,7 +230,7 @@ export default function Player() {
                       <button
                         key={k}
                         className={`${highlighted.has(k) ? "found" : ""} ${start?.[0] === x && start?.[1] === y ? "selected" : ""}`}
-                        aria-label={`Row ${y + 1}, column ${x + 1}: ${c}`}
+                        aria-label={`${copy.cellLabel(y + 1, x + 1)}: ${c}`}
                         onPointerDown={(e) => {
                           e.preventDefault();
                           (e.target as HTMLElement).focus();
@@ -268,7 +275,7 @@ export default function Player() {
                       {number && <span>{number}</span>}
                       <input
                         data-cell={k}
-                        aria-label={`Row ${y + 1}, column ${x + 1}${number ? copy.clue + number : ""}`}
+                        aria-label={`${copy.cellLabel(y + 1, x + 1)}${number ? copy.clueSuffix(number) : ""}`}
                         autoComplete="off"
                         autoCapitalize="characters"
                         maxLength={4}
@@ -323,7 +330,7 @@ export default function Player() {
             </div>
           </div>
           <aside className="play-clues">
-            {p.type === copy.wordsearch ? (
+            {p.type === "word-search" ? (
               <>
                 <h2>{copy.findTheseWords}</h2>
                 <ul>
@@ -356,7 +363,7 @@ export default function Player() {
                         }}
                       >
                         <b>{q.number}</b>{" "}
-                        {q.clue || `${letters(q.word).length} letters`}
+                        {q.clue || copy.letterCount(letters(q.word).length)}
                       </button>
                     ))}
                 </section>
@@ -365,16 +372,16 @@ export default function Player() {
           </aside>
         </div>
       )}
-      {p.type === copy.scramble && (
+      {p.type === "scramble" && (
         <div className="scramble-play">
           {p.entries.map((e, i) => (
             <label className="field" key={e.word}>
               <span>
                 {i + 1}. <strong>{p.scrambled[i]}</strong>
               </span>
-              {p.options.hint === copy.clue2 && <small>{e.clue}</small>}
+              {p.options.hint === "clue" && <small>{e.clue}</small>}
               <input
-                aria-label={`Answer ${i + 1}`}
+                aria-label={copy.answerLabel(i + 1)}
                 className={
                   checked && answers[i] && answers[i] !== e.word
                     ? "incorrect"
@@ -382,9 +389,9 @@ export default function Player() {
                 }
                 value={answers[i] ?? ""}
                 placeholder={
-                  p.options.hint === copy.first
+                  p.options.hint === "first"
                     ? e.word[0] + "…"
-                    : `${letters(e.word).length} letters`
+                    : copy.letterCount(letters(e.word).length)
                 }
                 onChange={(event) =>
                   setAnswers((a) => ({
@@ -397,14 +404,14 @@ export default function Player() {
           ))}
         </div>
       )}
-      {p.type === copy.cryptogram && (
+      {p.type === "cryptogram" && (
         <div className="crypto-play" aria-label={copy.cipherMessage}>
           {letters(p.encoded).map((c, i) =>
             /\p{L}/u.test(c) ? (
               <label key={i}>
                 <span>{c}</span>
                 <input
-                  aria-label={`Decode ${c}, position ${i + 1}`}
+                  aria-label={copy.decodeLabel(c, i + 1)}
                   value={actual[c] ?? ""}
                   readOnly={p.given.some((a) => p.cipher[a] === c)}
                   maxLength={2}
@@ -429,9 +436,9 @@ export default function Player() {
       )}
       <div className="button-row player-actions">
         <button className="primary" onClick={() => check()}>
-          {copy.checkPuzzle}{" "}
+          {copy.checkPuzzle}
         </button>
-        {p.type === copy.crossword && (
+        {p.type === "crossword" && (
           <>
             <button onClick={() => check("letter")}>{copy.checkLetter}</button>
             <button onClick={() => check("word")}>{copy.checkWord}</button>
@@ -443,12 +450,10 @@ export default function Player() {
               if (p.type === "word-search")
                 setFound(p.entries.map((e) => e.word));
               else setAnswers(expected);
-              setMessage(
-                "Answers revealed. Try another puzzle when you’re ready.",
-              );
+              setMessage(copy.answersRevealed);
             }}
           >
-            {copy.revealAnswers}{" "}
+            {copy.revealAnswers}
           </button>
         )}
         <button
@@ -456,18 +461,18 @@ export default function Player() {
             setAnswers({});
             setFound([]);
             setChecked(false);
-            setMessage("A fresh start.");
+            setMessage(copy.answersCleared);
           }}
         >
-          {copy.startAgain}{" "}
+          {copy.startAgain}
         </button>
       </div>
       <p className={done ? "success-message" : "play-message"} role="status">
-        {message || copy.takeYourTimeTheresNoTimerHere}
+        {message || copy.playIdle}
       </p>
-      <p className="help">{copy.practiceNotASecureAssessmentThisLink} </p>
+      <p className="help">{copy.playPracticeNote}</p>
       <a href={`/#p=${encode(p)}`} className="text-button">
-        {copy.openInTheMaker}{" "}
+        {copy.openInMaker} <Arrow />
       </a>
     </section>
   );

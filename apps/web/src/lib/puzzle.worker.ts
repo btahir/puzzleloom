@@ -1,5 +1,5 @@
 import {
-  generate,
+  generateDetailed,
   variants,
   type Input,
   type Puzzle,
@@ -24,7 +24,7 @@ self.onmessage = async (
   const { id, action } = event.data;
   try {
     if (action === "generate") {
-      const puzzle = generate(event.data.input);
+      const { puzzle, warnings } = generateDetailed(event.data.input);
       let previews = { puzzle: [] as string[], answer: [] as string[] },
         layoutError = "";
       try {
@@ -36,7 +36,7 @@ self.onmessage = async (
         layoutError =
           e instanceof Error ? e.message : "Could not lay out this puzzle.";
       }
-      self.postMessage({ id, puzzle, previews, layoutError });
+      self.postMessage({ id, puzzle, warnings, previews, layoutError });
     } else if (action === "image") {
       const sheets = layoutPuzzle(event.data.puzzle, event.data.answer);
       self.postMessage({

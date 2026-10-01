@@ -23,27 +23,48 @@ const interfaceFont = localFont({
 import "./globals.css";
 import Header from "../src/components/Header";
 import Footer from "../src/components/Footer";
-import { SITE_URL } from "../src/config/site";
+import { SITE_NAME, SITE_URL } from "../src/config/site";
+import { OG_IMAGE, appJsonLd, jsonLd } from "../src/config/meta";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
-    default: "Puzzleloom — A little ink. A little imagination.",
+    default: "Puzzleloom: free crossword and word search maker",
     template: "%s · Puzzleloom",
   },
   description:
-    "Make beautiful crosswords, word searches, scrambles and cryptograms from your own words. Free printable PDFs, answer keys and class sets. No account.",
+    "Make a crossword, word search, word scramble or cryptogram from your own word list. Free printable PDF with answer keys and class sets. No account.",
   openGraph: {
-    title: "Your words. A world of puzzles.",
-    description:
-      "Make, print and share a little curiosity. Free, private and made for the classroom.",
-    images: [{ url: "/desk-art.png", width: 1536, height: 1024 }],
+    type: "website",
+    siteName: SITE_NAME,
+    images: [OG_IMAGE],
   },
-  icons: { icon: "/favicon.svg" },
+  twitter: { card: "summary_large_image", images: [OG_IMAGE.url] },
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
 };
+export const viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf6ec" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e2a26" },
+  ],
+};
+// Runs before first paint: saved choice first, then the system setting.
+const themeScript = `try{var t=localStorage.getItem("puzzleloom-theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}`;
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={jsonLd(appJsonLd)}
+        />
         <link
           rel="preload"
           href="/fonts/AtkinsonHyperlegibleNext-Regular.ttf"
@@ -61,7 +82,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className={`${displayFont.variable} ${interfaceFont.variable}`}>
         <a className="skip-link" href="#main">
-          {copy.skipToContent}{" "}
+          {copy.skipToContent}
         </a>
         <Header />
         <main id="main">{children}</main>

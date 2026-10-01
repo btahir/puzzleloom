@@ -1,38 +1,47 @@
 import { copy } from "../../src/content/ui";
 import { DONATION_LINKS } from "../../src/config/site";
-export const metadata = { title: "Support Puzzleloom" };
+import { pageMeta } from "../../src/config/meta";
+import { Arrow } from "../../src/components/Icon";
+export const metadata = pageMeta({
+  title: "Support Puzzleloom",
+  description:
+    "Puzzleloom is free with nothing locked: answer keys, class sets and large print included. A one-time or monthly contribution pays for upkeep.",
+  path: "/support/",
+});
 export default function Page() {
   return (
     <article className="content-page prose support-page">
-      <p className="eyebrow">{copy.aLittleKindnessGoesALongWay}</p>
-      <h1>
-        {copy.keepTheGood} <br />
-        {copy.puzzlesComing}{" "}
-      </h1>
-      <p className="lead">{copy.everyPuzzleEveryAnswerKeyEveryClass} </p>
-      <p>{copy.ifPuzzleloomSavedYouTimeOrMade} </p>
+      <h1>{copy.supportTitle}</h1>
+      <p className="lead">{copy.supportLead}</p>
+      <p>{copy.supportBody}</p>
       <a
         className="primary button"
         href={DONATION_LINKS.once}
         rel="noopener noreferrer"
       >
-        {copy.makeAOnetimeContribution}{" "}
+        {copy.supportOnce} <Arrow />
       </a>
-      <h2>{copy.orLendAHandEachMonth}</h2>
-      <div className="donation-tiers">
+      <h2>{copy.supportMonthlyHeading}</h2>
+      <ul className="donation-tiers">
         {DONATION_LINKS.monthly.map((t) => (
-          <a href={t.href} key={t.label} rel="noopener noreferrer">
-            <strong>
-              {t.label}
-              <small>{copy.month}</small>
-            </strong>
-            <span>{t.note} ↗</span>
-          </a>
+          <li key={t.label}>
+            <a href={t.href} rel="noopener noreferrer">
+              <strong>
+                {t.label}
+                <small> {copy.perMonth}</small>
+              </strong>
+              <span>
+                {t.note} <Arrow />
+              </span>
+            </a>
+          </li>
         ))}
-      </div>
-      <p className="help">{copy.contributionsAreOptionalAndDoNotUnlock} </p>
-      <p>{copy.sharingAPuzzleWithATeacherOr} </p>
-      <a href="/">{copy.backToMakingPuzzles}</a>
+      </ul>
+      <p className="help">{copy.supportFinePrint}</p>
+      <p>{copy.supportOtherWays}</p>
+      <p>
+        <a href="/">{copy.backToMaking}</a>
+      </p>
     </article>
   );
 }

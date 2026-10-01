@@ -3,14 +3,15 @@ import { GITHUB_URL } from "../config/site";
 export default function Footer() {
   return (
     <footer className="site-footer">
-      <span>{copy.aLittleInkALittleImagination}</span>
-      <div>
-        <a href="/about/">{copy.privacyCredits}</a>
-        <a href="/agents/">{copy.cliMcp}</a>
-        <a href={GITHUB_URL}>{copy.openSource}</a>
-        <a href="/support/">{copy.support}</a>
-      </div>
-      <small>{copy.madeForCuriousMindsFreeAlways}</small>
+      <p>
+        <strong>{copy.siteName}</strong> {copy.footerNote}
+      </p>
+      <nav aria-label={copy.footerNavigation}>
+        <a href="/about/">{copy.footerAbout}</a>
+        <a href="/agents/">{copy.footerAgents}</a>
+        <a href={GITHUB_URL}>{copy.footerSource}</a>
+        <a href="/support/">{copy.footerSupport}</a>
+      </nav>
     </footer>
   );
 }

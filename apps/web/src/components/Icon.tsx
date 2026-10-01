@@ -53,3 +53,19 @@ export function ThemeIcon({ dark }: { dark: boolean }) {
     </svg>
   );
 }
+export function Download() {
+  return (
+    <svg
+      className="inline-icon"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      aria-hidden="true"
+    >
+      <path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M2.5 13.5h11" />
+    </svg>
+  );
+}

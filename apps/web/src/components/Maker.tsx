@@ -1,7 +1,7 @@
 "use client";
 import { copy } from "../content/ui";
 
-import { Arrow, Shuffle } from "./Icon";
+import { Arrow, Download, Shuffle } from "./Icon";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_WORDS,
@@ -17,6 +17,7 @@ import {
   type Puzzle,
   type PuzzleType,
   type Options,
+  type Warning,
 } from "../../../../packages/core/src/index";
 import {
   listPuzzles,
@@ -26,6 +27,8 @@ import {
 } from "../lib/storage";
 
 const newSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
+const SUPPORT_NOTE_KEY = "puzzleloom-support-note";
+const DEFAULT_TITLE = "In the garden";
 function download(data: BlobPart, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }));
   const a = document.createElement("a");
@@ -36,35 +39,70 @@ function download(data: BlobPart, name: string, type: string) {
 }
 type WorkerResult = {
   puzzle?: Puzzle;
+  warnings?: Warning[];
   bytes?: Uint8Array;
   previews?: { puzzle: string[]; answer: string[] };
   layoutError?: string;
   images?: { svg: string; width: number; height: number }[];
 };
+const TypeIcon = ({ type }: { type: PuzzleType }) => (
+  <svg
+    className="type-icon"
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.3"
+    aria-hidden="true"
+  >
+    {type === "crossword" && (
+      <path d="M1.5 5.5h13v5h-13zM5.5 1.5h5v13h-5zM6 6h4v4H6z" />
+    )}
+    {type === "word-search" && (
+      <>
+        <rect x="1.5" y="1.5" width="13" height="13" />
+        <path d="M4 5.5h8M4 8h8M4 10.5h8" strokeDasharray="1.4 1.6" />
+      </>
+    )}
+    {type === "scramble" && <path d="M2 4.5h3l6 7h3M2 11.5h3l6-7h3" />}
+    {type === "cryptogram" && (
+      <path d="M2.5 3.5h4M2.5 7h4M9.5 3.5h4M9.5 7h4M4.5 9.5v4M11.5 9.5v4M3 13.5h3M10 13.5h3" />
+    )}
+  </svg>
+);
 export default function Maker({
   initialType = "crossword",
   initialWords = DEFAULT_WORDS,
-  initialTitle = "In the garden",
+  initialTitle = DEFAULT_TITLE,
+  initialQuote = QUOTES[0],
   initialPuzzle,
   initialPreviews,
 }: {
   initialType?: PuzzleType;
   initialWords?: string;
   initialTitle?: string;
+  initialQuote?: string;
   initialPuzzle?: Puzzle;
   initialPreviews?: { puzzle: string[]; answer: string[] };
 }) {
   const [type, setType] = useState<PuzzleType>(initialType),
     [words, setWords] = useState(initialWords),
-    [quote, setQuote] = useState(QUOTES[0]),
-    [title, setTitle] = useState(initialTitle),
+    [quote, setQuote] = useState(initialQuote),
+    [customTitle, setCustomTitle] = useState<string | null>(null),
     [instructions, setInstructions] = useState(""),
-    [options, setOptions] = useState<Options>(optionsSchema.parse({})),
+    [options, setOptions] = useState<Options>(() => ({
+      ...optionsSchema.parse({}),
+      ...(initialPuzzle?.options ?? {}),
+    })),
+    [autoSize, setAutoSize] = useState(true),
     [seed, setSeed] = useState(4317),
     [puzzle, setPuzzle] = useState<Puzzle | null>(initialPuzzle ?? null),
+    [doneKey, setDoneKey] = useState(""),
     [previews, setPreviews] = useState(
       initialPreviews ?? { puzzle: [] as string[], answer: [] as string[] },
     ),
+    [warnings, setWarnings] = useState<Warning[]>([]),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(true),
@@ -78,6 +116,19 @@ export default function Maker({
     [dialog, setDialog] = useState<"saved" | "share" | null>(null),
     [saved, setSaved] = useState<Saved[]>([]),
     [support, setSupport] = useState(false);
+  // Until the user types a title it follows the content: the page's starter title while
+  // the starter content is unchanged, "In the garden" for the example list, otherwise
+  // the puzzle type ("Crossword", "Word search").
+  const unchanged =
+    type === initialType &&
+    (type === "cryptogram" ? quote === initialQuote : words === initialWords);
+  const title =
+    customTitle ??
+    (unchanged
+      ? initialTitle
+      : type !== "cryptogram" && words === DEFAULT_WORDS
+        ? DEFAULT_TITLE
+        : LABELS[type]);
   const workerReady = useRef<Promise<void>>(Promise.resolve());
   const worker = useRef<Worker | null>(null),
     seq = useRef(0),
@@ -108,9 +159,12 @@ export default function Maker({
     if (p.entries.length)
       setWords(p.entries.map((e) => `${e.word}: ${e.clue}`).join("\n"));
     if (p.quote) setQuote(p.quote);
-    setTitle(p.title);
+    setCustomTitle(p.title);
     setInstructions(p.instructions);
     setOptions(p.options);
+    setAutoSize(
+      (p.options as Options & { autoSize?: boolean }).autoSize ?? false,
+    );
     setSeed(p.seed);
     setDialog(null);
     setNotice(copy.puzzleOpened);
@@ -133,11 +187,7 @@ export default function Maker({
       else task?.resolve(data);
     };
     w.onerror = () => {
-      pending.current.forEach((t) =>
-        t.reject(
-          new Error("The puzzle worker could not start. Reload the page."),
-        ),
-      );
+      pending.current.forEach((t) => t.reject(new Error(copy.workerFailed)));
       pending.current.clear();
     };
     const locale = navigator.language;
@@ -162,39 +212,77 @@ export default function Maker({
       worker.current = null;
     };
   }, [load]);
+  // Identifies the inputs a result belongs to, so a stale preview never counts as ready.
+  const inputKey = JSON.stringify([
+    type,
+    words,
+    quote,
+    title,
+    seed,
+    options,
+    autoSize,
+    instructions,
+  ]);
   useEffect(() => {
     const ticket = ++generation.current;
+    const key = inputKey;
     setBusy(true);
     setError("");
     const timer = setTimeout(() => {
+      // Auto: leave the size out and let the engine choose (it records the size it used).
+      const { size, ...rest } = options;
       const input: Input = {
         type,
         words,
         quote,
         title,
         seed,
-        options,
+        options: (autoSize
+          ? { ...rest, autoSize: true }
+          : { ...rest, size, autoSize: false }) as Input["options"],
         ...(instructions ? { instructions } : {}),
       };
       request({ action: "generate", input })
-        .then(({ puzzle, previews, layoutError }) => {
+        .then(({ puzzle, warnings, previews, layoutError }) => {
           if (ticket === generation.current) {
             setPuzzle(puzzle!);
+            setWarnings(warnings ?? []);
             setPreviews(previews!);
             setError(layoutError ?? "");
             setPage(0);
+            setDoneKey(key);
             setBusy(false);
           }
         })
         .catch((e) => {
           if (ticket === generation.current) {
+            // Layout failed, but list clean-up notes still apply.
+            try {
+              setWarnings(
+                type === "cryptogram" ? [] : parseWords(words, options).details,
+              );
+            } catch {
+              setWarnings([]);
+            }
             setError(e.message);
+            setDoneKey(key);
             setBusy(false);
           }
         });
     }, 180);
     return () => clearTimeout(timer);
-  }, [type, words, quote, title, seed, options, instructions, request]);
+  }, [
+    type,
+    words,
+    quote,
+    title,
+    seed,
+    options,
+    autoSize,
+    instructions,
+    inputKey,
+    request,
+  ]);
   useEffect(() => {
     if (dialog) modal.current?.showModal();
     else modal.current?.close();
@@ -204,16 +292,19 @@ export default function Maker({
   const currentPreviews = showKey ? previews.answer : previews.puzzle;
   const pages = currentPreviews.length,
     svg = currentPreviews[Math.min(page, pages - 1)] ?? "";
-  let wordCount = 0,
-    warnings: string[] = [];
+  let wordCount = 0;
   try {
-    const parsed = parseWords(words, options);
-    wordCount = parsed.entries.length;
-    warnings = parsed.warnings;
+    wordCount = parseWords(words, options).entries.length;
   } catch {
     /* generation displays parser errors */
   }
-  const canExport = !!puzzle && !busy && !error && !exporting;
+  const warningMessages = [...new Set(warnings.map((w) => w.message))];
+  const isCrypto = type === "cryptogram";
+  const hasGrid = type === "crossword" || type === "word-search";
+  const usedSize =
+    puzzle && puzzle.type === type && hasGrid ? puzzle.options.size : null;
+  const current = !busy && doneKey === inputKey;
+  const canExport = !!puzzle && current && !error && !exporting;
   async function pdf(mode: "download" | "print" = "download") {
     if (!canExport) return;
     setExporting(true);
@@ -260,10 +351,21 @@ export default function Maker({
             "application/pdf",
           );
         }
-        setNotice(copy.yourPdfIsReadyHappyPuzzling);
-        if (!sessionStorage.getItem("puzzleloom-donated-note")) {
-          setSupport(true);
-          sessionStorage.setItem("puzzleloom-donated-note", "shown");
+        setNotice(
+          keyMode === "appended"
+            ? copy.pdfDownloadedKeyBack
+            : keyMode === "separate"
+              ? copy.pdfDownloadedKeySeparate
+              : copy.pdfDownloaded,
+        );
+        // The support note appears once per session, after the first successful download.
+        try {
+          if (!sessionStorage.getItem(SUPPORT_NOTE_KEY)) {
+            setSupport(true);
+            sessionStorage.setItem(SUPPORT_NOTE_KEY, "shown");
+          }
+        } catch {
+          /* Without session storage, skip the note rather than repeat it. */
         }
       }
     } catch (e) {
@@ -292,8 +394,7 @@ export default function Maker({
           const image = new Image();
           await new Promise<void>((resolve, reject) => {
             image.onload = () => resolve();
-            image.onerror = () =>
-              reject(new Error("Could not render the PNG. Try SVG instead."));
+            image.onerror = () => reject(new Error(copy.pngFailed));
             image.src = url;
           });
           const canvas = document.createElement("canvas");
@@ -318,17 +419,16 @@ export default function Maker({
       setSaved(await listPuzzles());
       setDialog("saved");
     } catch {
-      setError(copy.localStorageIsUnavailableExportAProject);
+      setError(copy.storageUnavailable);
     }
   }
   async function importFile(file?: File) {
     if (!file) return;
     try {
-      if (file.size > 300000)
-        throw new Error("Use a project file smaller than 300 KB.");
+      if (file.size > 300000) throw new Error(copy.importTooBig);
       load(readPuzzle(JSON.parse(await file.text())));
     } catch (e) {
-      setError(copy.couldNotImportThePuzzle + (e as Error).message);
+      setError(copy.importFailed + (e as Error).message);
     }
   }
   const link = puzzle
@@ -338,7 +438,7 @@ export default function Maker({
     <section
       className="maker"
       aria-label={copy.puzzleMaker}
-      data-ready={puzzle && !busy ? "true" : "false"}
+      data-ready={puzzle && current ? "true" : "false"}
     >
       <div className="maker-top">
         <div className="type-tabs" role="tablist" aria-label={copy.puzzleType}>
@@ -374,52 +474,57 @@ export default function Maker({
                 setShowKey(false);
               }}
             >
-              <span className="type-symbol" aria-hidden="true">
-                {["▦", "▤", copy.aa, "a=z"][i]}
-              </span>
-              {LABELS[t]}
+              <TypeIcon type={t} />
+              <span className="tab-long">{LABELS[t]}</span>
+              <span className="tab-short">{copy.shortLabels[t]}</span>
             </button>
           ))}
         </div>
-        <button className="text-button saved-button" onClick={openSaved}>
-          {copy.myPuzzles} <Arrow />
+        <button
+          className="text-button saved-button"
+          onClick={openSaved}
+          aria-label={copy.myPuzzles}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            aria-hidden="true"
+          >
+            <path d="M2 3.5h4l1.5 1.5H14v8H2z" />
+          </svg>
+          <span>{copy.myPuzzles}</span>
         </button>
       </div>
       <div className="workbench">
         <aside className="word-panel">
           <div className="panel-heading">
-            <span className="step">01</span>
-            <h2>
-              {type === copy.cryptogram ? copy.yourMessage : copy.yourWords}
-            </h2>
+            <h2>{isCrypto ? copy.quoteHeading : copy.wordsHeading}</h2>
             <span className="count">
-              {type === copy.cryptogram
-                ? `${quote.length}/600`
-                : `${wordCount} words`}
+              {isCrypto ? `${quote.length}/600` : copy.wordCount(wordCount)}
             </span>
           </div>
-          <p className="help">
-            {type === copy.cryptogram
-              ? copy.aLittleMysteryOneLetterAtA
-              : copy.oneWordPerLineAddAClue}
-          </p>
-          {type === copy.cryptogram ? (
+          <p className="help">{isCrypto ? copy.quoteHelp : copy.wordsHelp}</p>
+          {isCrypto ? (
             <>
               <label className="sr-only" htmlFor="quote">
-                {copy.yourQuote}{" "}
+                {copy.quoteLabel}
               </label>
               <textarea
                 id="quote"
                 value={quote}
                 maxLength={600}
                 onChange={(e) => setQuote(e.target.value)}
-                className="word-editor"
+                className="word-editor quote-editor"
               />
               <label className="field">
-                {copy.tryAnOriginalQuote}{" "}
+                {copy.sampleQuotes}
                 <select value="" onChange={(e) => setQuote(e.target.value)}>
                   <option value="" disabled>
-                    {copy.chooseAQuote}{" "}
+                    {copy.chooseAQuote}
                   </option>
                   {QUOTES.map((q) => (
                     <option key={q}>{q}</option>
@@ -430,23 +535,24 @@ export default function Maker({
           ) : (
             <>
               <label className="sr-only" htmlFor="words">
-                {copy.wordsAndClues}{" "}
+                {copy.wordsLabel}
               </label>
-              <textarea
-                id="words"
-                className="word-editor"
-                spellCheck={false}
-                value={words}
-                onChange={(e) => setWords(e.target.value)}
-              />
-              <div className="editor-footer">
-                <span>{copy.wordClue}</span>
-                <button
-                  className="text-button"
-                  onClick={() => fileInput.current?.click()}
-                >
-                  {copy.importTxtCsv}{" "}
-                </button>
+              <div className="editor">
+                <textarea
+                  id="words"
+                  className="word-editor"
+                  spellCheck={false}
+                  value={words}
+                  onChange={(e) => setWords(e.target.value)}
+                />
+                <div className="editor-footer">
+                  <button
+                    className="text-button"
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    {copy.importList}
+                  </button>
+                </div>
               </div>
               <input
                 ref={fileInput}
@@ -457,7 +563,7 @@ export default function Maker({
                   const file = e.target.files?.[0];
                   if (file) {
                     if (file.size > 30000) {
-                      setError("Use a word list smaller than 30 KB.");
+                      setError(copy.listTooBig);
                       return;
                     }
                     setWords(await file.text());
@@ -467,44 +573,49 @@ export default function Maker({
               />
             </>
           )}
-          {warnings.length > 0 && (
-            <p className="help" role="status">
-              {warnings.join(" ")}
-            </p>
+          {warningMessages.length > 0 && !isCrypto && (
+            <div className="list-warnings" role="status">
+              <strong>{copy.listChanges}</strong>
+              <ul>
+                {warningMessages.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </div>
           )}
           <button
             className="reshuffle"
             onClick={() => setSeed(newSeed())}
             disabled={busy}
           >
-            {" "}
-            <Shuffle /> {busy ? copy.makingYourPuzzle : copy.reshuffleThePuzzle}
+            <Shuffle /> {busy ? copy.making : copy.newLayout}
           </button>
-          <p className="local-note">
-            <span className="local-dot" />
-            {copy.yourWordsStayInThisBrowser}{" "}
-          </p>
-          <div className="small-tip">
-            <strong>{copy.aLittleInspiration}</strong>
-            <p>{copy.spellingListsABirthdaySurpriseOrFive} </p>
-            <button
-              className="text-button"
-              onClick={() => {
-                setWords(DEFAULT_WORDS);
-                setQuote(QUOTES[0]);
-                setTitle("In the garden");
-              }}
-            >
-              {copy.useTheGardenExample}{" "}
-            </button>
-          </div>
+          {!isCrypto && (
+            <div className="formats">
+              <strong>{copy.formatsHeading}</strong>
+              <ul>
+                {copy.formats.map((f) => (
+                  <li key={f}>
+                    <code>{f}</code>
+                  </li>
+                ))}
+              </ul>
+              <p>{copy.formatsNote}</p>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setWords(DEFAULT_WORDS);
+                  setCustomTitle(null);
+                }}
+              >
+                {copy.loadExample}
+              </button>
+            </div>
+          )}
         </aside>
         <div className="preview-panel">
           <div className="preview-toolbar">
-            <div>
-              <span className="step">02</span>
-              <span>{copy.paperPreview}</span>
-            </div>
+            <h2>{copy.previewHeading}</h2>
             <div
               className="preview-toggle"
               role="group"
@@ -517,7 +628,7 @@ export default function Maker({
                   setPage(0);
                 }}
               >
-                {copy.puzzle}{" "}
+                {copy.puzzle}
               </button>
               <button
                 aria-pressed={showKey}
@@ -526,12 +637,12 @@ export default function Maker({
                   setPage(0);
                 }}
               >
-                {copy.answerKey}{" "}
+                {copy.answerKey}
               </button>
             </div>
           </div>
           <div
-            className={`paper-wrap ${busy ? "is-busy" : ""}`}
+            className={`paper-wrap ${busy ? "is-busy" : ""} ${options.paper === "a4" ? "is-a4" : ""}`}
             aria-busy={busy}
           >
             {svg ? (
@@ -540,10 +651,14 @@ export default function Maker({
                 dangerouslySetInnerHTML={{ __html: svg }}
               />
             ) : (
-              <div className="paper empty-paper">
-                {copy.yourNextLittleChallengeIsTakingShape}{" "}
-              </div>
+              <div className="paper empty-paper">{copy.makingPreview}</div>
             )}
+            <div className="preview-caption">
+              <span>
+                {options.paper === "letter" ? copy.paperLetter : copy.paperA4}
+              </span>
+              <span>{puzzle?.id ?? ""}</span>
+            </div>
           </div>
           {pages > 1 && (
             <div className="page-nav">
@@ -551,55 +666,33 @@ export default function Maker({
                 disabled={page === 0}
                 onClick={() => setPage((p) => p - 1)}
               >
-                {copy.previous}{" "}
+                {copy.previous}
               </button>
-              <span>
-                {copy.page} {page + 1}
-                {copy.of} {pages}
-              </span>
+              <span>{copy.pageOf(page + 1, pages)}</span>
               <button
                 disabled={page >= pages - 1}
                 onClick={() => setPage((p) => p + 1)}
               >
-                {copy.next}{" "}
+                {copy.next}
               </button>
             </div>
           )}
-          <div className="preview-caption">
-            <span>
-              {options.paper === copy.letter
-                ? copy.usLetter8511In
-                : copy.a4210297Mm}
-            </span>
-            <span>{puzzle?.id ?? copy.yourPrintablePage}</span>
-          </div>
         </div>
         <aside className="options-panel">
           <div className="panel-heading">
-            <span className="step">03</span>
-            <h2>{copy.makeItYours}</h2>
+            <h2>{copy.settingsHeading}</h2>
           </div>
           <label className="field">
-            {copy.puzzleTitle}{" "}
+            {copy.puzzleTitle}
             <input
               value={title}
               maxLength={100}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            {copy.instructions}{" "}
-            <textarea
-              className="short-text"
-              value={instructions}
-              placeholder={puzzle?.instructions ?? copy.optionalInstructions}
-              maxLength={300}
-              onChange={(e) => setInstructions(e.target.value)}
+              onChange={(e) => setCustomTitle(e.target.value)}
             />
           </label>
           <div className="field-pair">
             <label className="field">
-              {copy.paper}{" "}
+              {copy.paper}
               <select
                 value={options.paper}
                 onChange={(e) =>
@@ -607,25 +700,25 @@ export default function Maker({
                 }
               >
                 <option value="letter">{copy.usLetter}</option>
-                <option value="a4">A4</option>
+                <option value="a4">{copy.a4}</option>
               </select>
             </label>
             <label className="field">
-              {copy.textSize}{" "}
+              {copy.textSize}
               <select
                 value={options.fontSize}
                 onChange={(e) =>
                   option("fontSize", e.target.value as Options["fontSize"])
                 }
               >
-                {["S", "M", "L", copy.xl].map((s) => (
+                {["S", "M", "L", "XL"].map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
             </label>
           </div>
           <label className="field">
-            {copy.printFont}{" "}
+            {copy.printFont}
             <select
               aria-label={copy.printFont}
               value={options.font}
@@ -633,43 +726,73 @@ export default function Maker({
                 option("font", e.target.value as Options["font"])
               }
             >
-              <option value="atkinson">{copy.atkinsonHyperlegible}</option>
-              <option value="opendyslexic">{copy.opendyslexicFont}</option>
+              <option value="atkinson">{copy.atkinson}</option>
+              <option value="opendyslexic">{copy.openDyslexic}</option>
             </select>
           </label>
-          {(type === copy.crossword || type === copy.wordsearch) && (
-            <label className="field">
-              {copy.gridSize}{" "}
-              <span className="field-value">
-                {options.size} × {options.size}
-              </span>
-              <input
-                type="range"
-                min="8"
-                max="30"
-                value={options.size}
-                onChange={(e) => option("size", +e.target.value)}
-              />
-            </label>
+          {hasGrid && (
+            <div className="field grid-size">
+              <div className="field-row">
+                <span id="grid-size-label">{copy.gridSize}</span>
+                <div
+                  className="segmented"
+                  role="radiogroup"
+                  aria-label={copy.gridSizeMode}
+                >
+                  {[true, false].map((auto) => (
+                    <button
+                      key={String(auto)}
+                      role="radio"
+                      aria-checked={autoSize === auto}
+                      onClick={() => {
+                        if (!auto && usedSize) option("size", usedSize);
+                        setAutoSize(auto);
+                      }}
+                    >
+                      {auto ? copy.gridAuto : copy.gridCustom}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {autoSize ? (
+                <p className="field-note" aria-live="polite">
+                  {usedSize
+                    ? copy.gridAutoUsed(usedSize)
+                    : copy.gridAutoPending}
+                </p>
+              ) : (
+                <div className="range-row">
+                  <input
+                    type="range"
+                    min="8"
+                    max="30"
+                    aria-labelledby="grid-size-label"
+                    value={options.size}
+                    onChange={(e) => option("size", +e.target.value)}
+                  />
+                  <output>{copy.gridValue(options.size)}</output>
+                </div>
+              )}
+            </div>
           )}
-          {type === copy.wordsearch && (
+          {type === "word-search" && (
             <label className="field">
-              {copy.difficulty}{" "}
+              {copy.difficulty}
               <select
                 value={options.difficulty}
                 onChange={(e) =>
                   option("difficulty", e.target.value as Options["difficulty"])
                 }
               >
-                <option value="easy">{copy.easyAcrossAndDown}</option>
-                <option value="medium">{copy.mediumAddDiagonals}</option>
-                <option value="hard">{copy.hardAllDirections}</option>
+                <option value="easy">{copy.easy}</option>
+                <option value="medium">{copy.medium}</option>
+                <option value="hard">{copy.hard}</option>
               </select>
             </label>
           )}
-          {type === copy.scramble && (
+          {type === "scramble" && (
             <label className="field">
-              {copy.hints}{" "}
+              {copy.hints}
               <select
                 value={options.hint}
                 onChange={(e) =>
@@ -682,9 +805,9 @@ export default function Maker({
               </select>
             </label>
           )}
-          {type === copy.cryptogram && (
+          {isCrypto && (
             <label className="field">
-              {copy.givenLetters}{" "}
+              {copy.givenLetters}
               <input
                 type="number"
                 min="0"
@@ -695,24 +818,26 @@ export default function Maker({
             </label>
           )}
           <details>
-            <summary>{copy.languageMore}</summary>
+            <summary>{copy.moreOptions}</summary>
             <label className="field">
-              {copy.alphabet}{" "}
+              {copy.instructions}
+              <textarea
+                className="short-text"
+                value={instructions}
+                placeholder={puzzle?.instructions ?? copy.optionalInstructions}
+                maxLength={300}
+                onChange={(e) => setInstructions(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              {copy.alphabet}
               <select
                 value={options.language}
                 onChange={(e) =>
                   option("language", e.target.value as Options["language"])
                 }
               >
-                {Object.entries({
-                  en: copy.english,
-                  es: copy.spanish,
-                  fr: copy.french,
-                  de: copy.german,
-                  pt: copy.portuguese,
-                  it: copy.italian,
-                  nl: copy.dutch,
-                }).map(([code, label]) => (
+                {Object.entries(copy.languages).map(([code, label]) => (
                   <option key={code} value={code}>
                     {label}
                   </option>
@@ -724,33 +849,33 @@ export default function Maker({
                 type="checkbox"
                 checked={options.stripAccents}
                 onChange={(e) => option("stripAccents", e.target.checked)}
-              />{" "}
-              {copy.stripAccents}{" "}
+              />
+              {copy.stripAccents}
             </label>
             <label className="check">
               <input
                 type="checkbox"
                 checked={options.expandEszett}
                 onChange={(e) => option("expandEszett", e.target.checked)}
-              />{" "}
-              {copy.expandToSs}{" "}
+              />
+              {copy.expandEszett}
             </label>
             <label className="check">
               <input
                 type="checkbox"
                 checked={options.nameFields}
                 onChange={(e) => option("nameFields", e.target.checked)}
-              />{" "}
-              {copy.nameDateClassFields}{" "}
+              />
+              {copy.nameFields}
             </label>
-            {type === copy.crossword && (
+            {type === "crossword" && (
               <label className="check">
                 <input
                   type="checkbox"
                   checked={options.wordBank}
                   onChange={(e) => option("wordBank", e.target.checked)}
-                />{" "}
-                {copy.includeWordBank}{" "}
+                />
+                {copy.wordBank}
               </label>
             )}
             <label className="check">
@@ -758,11 +883,11 @@ export default function Maker({
                 type="checkbox"
                 checked={options.allowReveal}
                 onChange={(e) => option("allowReveal", e.target.checked)}
-              />{" "}
-              {copy.allowAnswerRevealInPlayer}{" "}
+              />
+              {copy.allowReveal}
             </label>
             <label className="field">
-              {copy.seed}{" "}
+              {copy.seed}
               <input
                 type="number"
                 min="0"
@@ -774,84 +899,89 @@ export default function Maker({
           </details>
           <div className="export-options">
             <label className="field">
-              {copy.answerKey}{" "}
+              {copy.answerKey}
               <select
                 aria-label={copy.answerKey}
                 value={keyMode}
                 onChange={(e) => setKeyMode(e.target.value as typeof keyMode)}
               >
-                <option value="appended">{copy.atTheBackOfThePdf}</option>
-                <option value="separate">{copy.separatePdf}</option>
-                <option value="none">{copy.puzzleOnly}</option>
+                <option value="appended">{copy.keyAppended}</option>
+                <option value="separate">{copy.keySeparate}</option>
+                <option value="none">{copy.keyNone}</option>
               </select>
             </label>
-            <label className="field">
-              {copy.classSet}{" "}
-              <span className="optional">{copy.text140Versions}</span>
+            <div className="field class-set">
+              <label htmlFor="class-set">
+                {copy.classSet}
+                <span className="field-note" id="class-set-range">
+                  {copy.classSetRange}
+                </span>
+              </label>
               <input
+                id="class-set"
                 type="number"
                 min="1"
                 max="40"
                 value={count}
+                aria-describedby="class-set-range"
                 onChange={(e) =>
-                  setCount(Math.max(1, Math.min(40, +e.target.value)))
+                  setCount(Math.max(1, Math.min(40, +e.target.value || 1)))
                 }
               />
-            </label>
+            </div>
             <div className="download-area">
               <button
                 className="primary download-button"
                 disabled={!canExport}
                 onClick={() => pdf()}
               >
-                <span aria-hidden="true">↓</span>{" "}
-                {exporting ? copy.preparingYourPdf : copy.downloadPdf}
+                <Download />
+                {exporting ? copy.preparingPdf : copy.downloadPdf}
               </button>
               <span className="download-note">
-                {keyMode === copy.none
-                  ? copy.printreadyPuzzlePagesOnly
-                  : keyMode === copy.separate
-                    ? copy.printreadyAnswerKeyInASeparateFile
-                    : copy.printreadyAnswerKeysAtTheBack}
+                {count > 1 ? copy.noteClassSet(count) + " " : ""}
+                {keyMode === "none"
+                  ? copy.noteNone
+                  : keyMode === "separate"
+                    ? copy.noteSeparate
+                    : copy.noteAppended}
               </span>
             </div>
             <div className="secondary-actions">
               <button disabled={!canExport} onClick={() => pdf("print")}>
-                {copy.print}{" "}
+                {copy.print}
               </button>
               <button disabled={!canExport} onClick={() => setDialog("share")}>
-                {copy.playLink}{" "}
+                {copy.playLink}
               </button>
               <button
                 disabled={!canExport}
                 onClick={async () => {
                   try {
                     await savePuzzle(puzzle!);
-                    setNotice("Saved in My puzzles on this browser.");
+                    setNotice(copy.savedLocally);
                   } catch {
-                    setError(
-                      "Could not save locally. Export a project file instead.",
-                    );
+                    setError(copy.saveFailed);
                   }
                 }}
               >
-                {copy.save}{" "}
+                {copy.save}
               </button>
             </div>
             <details>
-              <summary>{copy.moreExportsImport}</summary>
+              <summary>{copy.moreExports}</summary>
               <div className="secondary-actions">
                 <button
                   disabled={!canExport}
                   onClick={() => imageExport("png")}
                 >
-                  {copy.png}{" "}
+                  {copy.png}
                 </button>
                 <button
                   disabled={!canExport}
                   onClick={() => imageExport("svg")}
                 >
-                  {copy.svg}{" "}
+                  {copy.svg}
                 </button>
                 <button
                   disabled={!canExport}
@@ -863,14 +993,14 @@ export default function Maker({
                     )
                   }
                 >
-                  {copy.projectFile}{" "}
+                  {copy.projectFile}
                 </button>
               </div>
               <button
                 className="text-button"
                 onClick={() => importInput.current?.click()}
               >
-                {copy.openAProjectFile}{" "}
+                {copy.openProjectFile}
               </button>
               <input
                 ref={importInput}
@@ -894,10 +1024,7 @@ export default function Maker({
       {notice && (
         <div className="message notice" role="status">
           {notice}
-          <button
-            aria-label={copy.dismissNotification}
-            onClick={() => setNotice("")}
-          >
+          <button aria-label={copy.dismiss} onClick={() => setNotice("")}>
             ×
           </button>
         </div>
@@ -905,8 +1032,10 @@ export default function Maker({
       {support && (
         <div className="support-note">
           <p>
-            {copy.yourPuzzleIsYoursIfThisSaved}{" "}
-            <a href="/support/">{copy.helpKeepPuzzleloomFree}</a>.
+            {copy.supportNote}{" "}
+            <a href="/support/">
+              {copy.supportNoteLink} <Arrow />
+            </a>
           </p>
           <button
             aria-label={copy.dismissSupportNote}
@@ -918,7 +1047,8 @@ export default function Maker({
       )}
       <div className="mobile-download">
         <button className="primary" disabled={!canExport} onClick={() => pdf()}>
-          {exporting ? copy.preparingYourPdf : copy.downloadPdf}
+          <Download />
+          {exporting ? copy.preparingPdf : copy.downloadPdf}
         </button>
       </div>
       <dialog
@@ -931,19 +1061,17 @@ export default function Maker({
       >
         <div className="dialog-head">
           <h2 id="dialog-title">
-            {dialog === copy.share
-              ? copy.aLittleChallengeToShare
-              : copy.myPuzzles}
+            {dialog === "share" ? copy.shareHeading : copy.savedHeading}
           </h2>
           <button onClick={() => setDialog(null)} aria-label={copy.closeDialog}>
             ×
           </button>
         </div>
-        {dialog === copy.share ? (
+        {dialog === "share" ? (
           <>
-            <p>{copy.anyoneWithThisLinkCanPlayEverything} </p>
+            <p>{copy.shareBody}</p>
             <label className="field">
-              {copy.playLink}{" "}
+              {copy.playLink}
               <input readOnly value={link} onFocus={(e) => e.target.select()} />
             </label>
             <div className="button-row">
@@ -952,27 +1080,25 @@ export default function Maker({
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(link);
-                    setNotice("Play link copied.");
+                    setNotice(copy.linkCopied);
                   } catch {
-                    setNotice("Select the link and copy it manually.");
+                    setNotice(copy.copyManually);
                   }
                 }}
               >
-                {copy.copyLink}{" "}
+                {copy.copyLink}
               </button>
               <a className="button" href={link}>
-                {copy.openPlayer}{" "}
+                {copy.openPlayer}
               </a>
             </div>
-            <p className="help">
-              {copy.theLinkIncludesTheAnswersObfuscatedRather}{" "}
-            </p>
+            <p className="help">{copy.shareWarning}</p>
           </>
         ) : (
           <>
-            <p className="help">{copy.storedOnThisDeviceInThisBrowser} </p>
+            <p className="help">{copy.savedNote}</p>
             {saved.length === 0 ? (
-              <p>{copy.noPuzzlesSavedYetMakeOneThen}</p>
+              <p>{copy.savedEmpty}</p>
             ) : (
               saved.map((s) => (
                 <div className="saved-row" key={s.key}>
@@ -986,12 +1112,12 @@ export default function Maker({
                     onClick={async () => {
                       await savePuzzle({
                         ...s.puzzle,
-                        title: s.puzzle.title + " (copy)",
+                        title: s.puzzle.title + copy.copySuffix,
                       });
                       setSaved(await listPuzzles());
                     }}
                   >
-                    {copy.duplicate}{" "}
+                    {copy.duplicate}
                   </button>
                   <button
                     onClick={async () => {
@@ -999,7 +1125,7 @@ export default function Maker({
                       setSaved(await listPuzzles());
                     }}
                   >
-                    {copy.delete}{" "}
+                    {copy.delete}
                   </button>
                 </div>
               ))

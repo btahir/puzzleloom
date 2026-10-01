@@ -1,8 +1,15 @@
 import { copy } from "../../src/content/ui";
 import { notFound } from "next/navigation";
 import Maker from "../../src/components/MakerServer";
+import { Arrow } from "../../src/components/Icon";
 import { landingPages } from "../../src/content/pages";
-import { generate } from "../../../../packages/core/src/index";
+import { pageMeta, jsonLd } from "../../src/config/meta";
+import { SITE_URL } from "../../src/config/site";
+import {
+  generate,
+  LABELS,
+  type Input,
+} from "../../../../packages/core/src/index";
 import { layoutPuzzle, toSVG } from "../../../../packages/render/src/index";
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -15,11 +22,12 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const p = landingPages.find((p) => p.slug === slug);
-  return {
-    title: p?.title,
-    description: p?.intro,
-    alternates: { canonical: `/${slug}/` },
-  };
+  if (!p) return {};
+  return pageMeta({
+    title: p.title,
+    description: p.description,
+    path: `/${slug}/`,
+  });
 }
 export default async function Page({
   params,
@@ -29,50 +37,110 @@ export default async function Page({
   const { slug } = await params;
   const p = landingPages.find((p) => p.slug === slug);
   if (!p) notFound();
+  const isCrypto = p.type === "cryptogram";
+  // Cryptogram pages carry the quote in `words`.
+  const source = isCrypto ? { quote: p.words } : { words: p.words };
   let sample = "";
   try {
     sample = toSVG(
       layoutPuzzle(
-        generate({ type: p.type, words: p.words, title: p.title, seed: 4317 }),
+        generate({
+          type: p.type,
+          ...source,
+          title: p.title,
+          seed: 4317,
+          options: { autoSize: true } as Input["options"],
+        }),
       )[0],
     );
   } catch {
     /* The maker reports placement limitations for the original words. */
   }
+  const related = [
+    ...landingPages.filter((o) => o.slug !== p.slug && o.type === p.type),
+    ...landingPages.filter((o) => o.type !== p.type),
+  ].slice(0, 9);
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    url: `${SITE_URL}/${p.slug}/`,
+    mainEntity: p.faq.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLd(faqLd)}
+      />
       <section className="landing-intro">
         <div>
-          <p className="eyebrow">{copy.aGoodPlaceToBegin}</p>
           <h1>{p.title}</h1>
           <p>{p.intro}</p>
         </div>
         {sample && (
-          <div
-            className="sample-print"
-            dangerouslySetInnerHTML={{ __html: sample }}
-          />
+          <figure className="sample-print">
+            <div
+              className="sheet"
+              role="img"
+              aria-label={copy.landingSampleLabel(p.title)}
+              dangerouslySetInnerHTML={{
+                __html: sample.replace(
+                  / role="img" aria-label="[^"]*"/,
+                  ' aria-hidden="true"',
+                ),
+              }}
+            />
+          </figure>
         )}
       </section>
       <Maker
         initialType={p.type}
-        initialWords={p.words}
         initialTitle={p.title}
+        {...(isCrypto ? { initialQuote: p.words } : { initialWords: p.words })}
       />
-      <section className="landing-notes">
-        <h2>{copy.makeThisOneYourOwn}</h2>
-        <ul>
-          {p.tips.map((t) => (
-            <li key={t}>{t}</li>
+      <article className="landing-notes">
+        <section aria-labelledby="howto-heading" className="howto">
+          <h2 id="howto-heading">{copy.landingHowTo(LABELS[p.type])}</h2>
+          {p.body.map((para) => (
+            <p key={para}>{para}</p>
           ))}
-        </ul>
-        <h2>{copy.aPageAPencilALittlePossibility}</h2>
-        <p>{copy.useTheStarterListAsisOrReplace} </p>
-        <p>
-          {copy.needAnotherIdea}{" "}
-          <a href="/">{copy.exploreAllFourPuzzleTypes}</a>
-        </p>
-      </section>
+        </section>
+        <div className="landing-side">
+          <section aria-labelledby="tips-heading">
+            <h2 id="tips-heading">{copy.landingTipsHeading}</h2>
+            <ul className="tips">
+              {p.tips.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </section>
+          <section aria-labelledby="faq-heading" className="faq">
+            <h2 id="faq-heading">{copy.landingFaqHeading}</h2>
+            {p.faq.map((f) => (
+              <div key={f.q}>
+                <h3>{f.q}</h3>
+                <p>{f.a}</p>
+              </div>
+            ))}
+          </section>
+        </div>
+        <nav aria-labelledby="more-heading" className="more-pages">
+          <h2 id="more-heading">{copy.landingMoreHeading}</h2>
+          <ul className="browse-links">
+            {related.map((o) => (
+              <li key={o.slug}>
+                <a href={`/${o.slug}/`}>
+                  <span>{o.shortTitle}</span> <Arrow />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </article>
     </>
   );
 }
