@@ -51,3 +51,6 @@ docs/launch/drafts/
 
 # Launch video project (HyperFrames, captures, renders) stays local
 docs/launch/video/
+
+# Internal design reviews and directions (never committed)
+docs/design/
