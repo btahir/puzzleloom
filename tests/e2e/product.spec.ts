@@ -840,3 +840,80 @@ test("bare play page and short pages behave", async ({ page }) => {
     ).toBeLessThanOrEqual(900);
   }
 });
+test("dark crossword shows wrong-letter marks and the active square", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  const p = generate({ type: "crossword", seed: 42 });
+  await page.goto("/play/#" + encode(p));
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const q = p.placements.find((q) => q.dx === 1)!;
+  const n = letters(q.word).length;
+  await page.locator(`[data-cell="${q.x},${q.y}"]`).focus();
+  await page.keyboard.type("Z".repeat(n));
+  const mark = await page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--mark")
+      .trim(),
+  );
+  const highlight = await page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--highlight")
+      .trim(),
+  );
+  const toRgb = (hex: string) =>
+    `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;
+  await page.getByRole("button", { name: "Check word", exact: true }).click();
+  await expect(page.getByRole("status")).toBeInViewport();
+  const first = page.locator(".cross-cell").filter({
+    has: page.locator(`[data-cell="${q.x},${q.y}"]`),
+  });
+  await expect(first).toHaveCSS(
+    "box-shadow",
+    new RegExp(toRgb(mark).replace(/[()]/g, "\\$&")),
+  );
+  const active = page.locator(".cross-cell.is-active");
+  await expect(active).toHaveCSS("background-color", toRgb(highlight));
+});
+test("each new puzzle gets its own ID; edits keep it", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  const id = () =>
+    page
+      .locator(".paper svg")
+      .evaluate((svg) => svg.textContent?.match(/PL-[0-9A-Z]+/)?.[0]);
+  const ids = [await id()];
+  await page.getByRole("tab", { name: "Word search", exact: true }).click();
+  await ready(page);
+  ids.push(await id());
+  await page.getByRole("tab", { name: "Crossword", exact: true }).click();
+  await ready(page);
+  ids.push(await id());
+  await page
+    .getByLabel("Words and clues")
+    .fill(
+      "PLANET: Orbits a star\nCOMET: Icy body\nORBIT: A path\nMETEOR: Streak",
+    );
+  await ready(page);
+  ids.push(await id());
+  expect(new Set(ids).size).toBe(ids.length);
+  // Editing a clue or adding a word is the same puzzle.
+  await page
+    .getByLabel("Words and clues")
+    .fill(
+      "PLANET: Orbits the sun\nCOMET: Icy body\nORBIT: A path\nMETEOR: Streak\nTERM: Part of a year",
+    );
+  await ready(page);
+  expect(await id()).toBe(ids[3]);
+});
+test("phone pages without the maker have no dead band under the footer", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/support/");
+  const pad = await page.evaluate(
+    () => getComputedStyle(document.body).paddingBottom,
+  );
+  expect(pad).toBe("0px");
+});
