@@ -1,5 +1,19 @@
 # Acceptance evidence
 
+Last full run: 2026-10-01, on the owner's Mac (Chrome), after the review-and-fix round. `pnpm verify` exits 0: typecheck, lint, **101/101** unit/property/integration tests, licence audit of **398** packages, static build, **48/48** Chromium e2e tests (run twice in a row), and the dev smoke. Lighthouse mobile: `/` 91 performance / 100 accessibility; `/large-print-word-search-maker/` 91 / 100; `/christmas-word-search/` 90 / 100.
+
+Fixed in the 2026-10-01 round (each with an automated check):
+
+- [x] Word-search fill never spells a blocklisted word in any direction (3,000-seed property test); `check` flags one.
+- [x] Crossword and word-search grids size themselves; every benchmark list (10–40 words, short and long vocabulary) completes on 60/60 seeds at default settings, 25-word p95 under 40 ms. See bench.md.
+- [x] Clues containing `:` or ` - ` are kept verbatim; SAW/WAS allowed on easy; two-letter words work; larger grids don't fail more.
+- [x] Readable validation errors; structured warnings for altered input; clean `--json` from `node packages/cli/bin.mjs`; old play links still decode.
+- [x] Printed sheets fill the page; S–XL scale grid, clues and numbers; XL cryptogram fits one page plus key on Letter and A4.
+- [x] Homepage maker above the fold at 1440×900; errors visible in place; mobile menu reaches Support; landing FAQ and JSON-LD present; dark-theme accessibility test no longer races the theme transition.
+- [x] Crossword player word highlighting, whole-word check, dark-theme incorrect marks; word-search live highlighter.
+
+## Earlier evidence (Codex build, 2026-09-30)
+
 The complete `pnpm verify` workflow passes in the prepared cloud workspace. Unit/property/integration tests: **40 passed**. Chromium browser acceptance tests: **22 passed** (including the final same-tab play-link regression). No tests are skipped or marked expected-failure.
 
 - [x] Strict TypeScript type checking and ESLint.

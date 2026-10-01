@@ -2,6 +2,15 @@
 
 Local production static export, Chromium, Lighthouse 13.5, default mobile simulation (including CPU slowdown). Measured in the cloud container; real device/network performance varies.
 
+Latest run (2026-10-01, owner's Mac, after the redesign):
+
+| Page | Performance | Accessibility | LCP | Total blocking time |
+|---|---:|---:|---:|---:|
+| Home | 91 | 100 | 3.5 s | 30 ms |
+| Large print word search | 91 | 100 | 3.5 s | 20 ms |
+
+Earlier run (2026-09-30, cloud container):
+
 | Page | Performance | Accessibility | LCP | Total blocking time |
 |---|---:|---:|---:|---:|
 | Home | 90 | 100 | 3.3 s | 150 ms |
