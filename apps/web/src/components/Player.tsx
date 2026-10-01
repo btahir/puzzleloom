@@ -1,7 +1,7 @@
 "use client";
 import { copy } from "../content/ui";
 import { ArrowRight } from "./Icon";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   decode,
   encode,
@@ -23,7 +23,10 @@ export default function Player() {
     [message, setMessage] = useState(""),
     [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set()),
     [active, setActive] = useState<[number, number]>([0, 0]),
-    [axis, setAxis] = useState<"across" | "down">("across");
+    [axis, setAxis] = useState<"across" | "down">("across"),
+    [pending, setPending] = useState<[number, number] | null>(null),
+    [empty, setEmpty] = useState(false);
+  const dragging = useRef(false);
   const grid = useRef<HTMLDivElement>(null),
     clueList = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -35,6 +38,13 @@ export default function Player() {
       setCheckedKeys(new Set());
       setError("");
       setAxis("across");
+      setPending(null);
+      if (location.hash.length <= 1) {
+        setP(null);
+        setEmpty(true);
+        return;
+      }
+      setEmpty(false);
       try {
         const puzzle = decode(location.hash.slice(1));
         setP(puzzle);
@@ -72,6 +82,18 @@ export default function Player() {
       ?.querySelector<HTMLElement>(".clue.is-current")
       ?.scrollIntoView({ block: "nearest" });
   }, [current?.number, current?.dx]);
+  if (empty)
+    return (
+      <div className="content-page">
+        <h1>{copy.playEmptyTitle}</h1>
+        <p className="lead-plain">{copy.playEmptyBody}</p>
+        <p className="button-row spaced">
+          <a className="button primary" href="/">
+            {copy.makeAPuzzle}
+          </a>
+        </p>
+      </div>
+    );
   if (error)
     return (
       <div className="content-page">
@@ -173,6 +195,7 @@ export default function Player() {
       setMessage(copy.wordFound(match.word));
     } else setMessage(copy.noWordThere);
     setStart(null);
+    setPending(null);
   }
   function focus(x: number, y: number) {
     const input = grid.current?.querySelector<HTMLInputElement>(
@@ -217,6 +240,40 @@ export default function Player() {
   p.placements
     .filter((q) => found.includes(q.word))
     .forEach((q) => cellsOf(q).forEach((k) => highlighted.add(k)));
+  // While selecting, snap the pointer to the nearest straight line from the first letter.
+  let pendingLine: [number, number, number, number] | null = null;
+  if (p.type === "word-search" && start && pending) {
+    const ddx = pending[0] - start[0],
+      ddy = pending[1] - start[1];
+    if (ddx || ddy) {
+      const ax = Math.abs(ddx),
+        ay = Math.abs(ddy);
+      const [dx, dy] =
+        ax >= 2 * ay
+          ? [Math.sign(ddx), 0]
+          : ay >= 2 * ax
+            ? [0, Math.sign(ddy)]
+            : [Math.sign(ddx), Math.sign(ddy)];
+      let n = dx && dy ? Math.max(ax, ay) : dx ? ax : ay;
+      const w = p.grid[0].length,
+        h = p.grid.length;
+      while (
+        n > 0 &&
+        (start[0] + dx * n < 0 ||
+          start[0] + dx * n >= w ||
+          start[1] + dy * n < 0 ||
+          start[1] + dy * n >= h)
+      )
+        n--;
+      if (n > 0)
+        pendingLine = [
+          start[0],
+          start[1],
+          start[0] + dx * n,
+          start[1] + dy * n,
+        ];
+    }
+  }
   const wordCells = new Set(current ? cellsOf(current) : []);
   const typeLabel = LABELS[p.type];
   const cols = p.grid[0]?.length ?? 0,
@@ -235,6 +292,47 @@ export default function Player() {
       ? p.encoded.split(/(\s+)/).filter((w) => w && !/^\s+$/.test(w))
       : [];
   let cryptoIndex = 0;
+  const gridType = p.type === "crossword" || p.type === "word-search";
+  const actions = (
+    <>
+      <div className="button-row player-actions">
+        <button className="primary" onClick={() => check()}>
+          {copy.checkPuzzle}
+        </button>
+        {p.type === "crossword" && (
+          <>
+            <button onClick={() => check("letter")}>{copy.checkLetter}</button>
+            <button onClick={() => check("word")}>{copy.checkWord}</button>
+          </>
+        )}
+        {p.options.allowReveal && (
+          <button
+            onClick={() => {
+              if (p.type === "word-search")
+                setFound(p.entries.map((e) => e.word));
+              else setAnswers(expected);
+              setMessage(copy.answersRevealed);
+            }}
+          >
+            {copy.revealAnswers}
+          </button>
+        )}
+        <button
+          onClick={() => {
+            setAnswers({});
+            setFound([]);
+            setCheckedKeys(new Set());
+            setMessage(copy.answersCleared);
+          }}
+        >
+          {copy.startAgain}
+        </button>
+      </div>
+      <p className={done ? "success-message" : "play-message"} role="status">
+        {message || copy.playIdle}
+      </p>
+    </>
+  );
   return (
     <section className="player content-page">
       <h1>{p.title}</h1>
@@ -263,7 +361,15 @@ export default function Player() {
                 {current.clue || copy.letterCount(letters(current.word).length)}
               </p>
             )}
-            <div className="play-grid-wrap">
+            <div
+              className="play-grid-wrap"
+              style={
+                {
+                  "--rows": rows,
+                  "--cols": cols,
+                } as CSSProperties
+              }
+            >
               {p.type === "word-search" && (
                 <svg
                   className="found-strokes"
@@ -286,6 +392,15 @@ export default function Player() {
                         />
                       );
                     })}
+                  {pendingLine && (
+                    <line
+                      className="pending"
+                      x1={pendingLine[0] + 0.5}
+                      y1={pendingLine[1] + 0.5}
+                      x2={pendingLine[2] + 0.5}
+                      y2={pendingLine[3] + 0.5}
+                    />
+                  )}
                 </svg>
               )}
               <div
@@ -293,6 +408,21 @@ export default function Player() {
                 className={`play-grid ${p.type}`}
                 role="group"
                 aria-label={copy.puzzleGrid}
+                onPointerMove={(e) => {
+                  if (p.type !== "word-search" || !start || !dragging.current)
+                    return;
+                  const cell = document
+                    .elementFromPoint(e.clientX, e.clientY)
+                    ?.closest("[data-xy]");
+                  if (cell) {
+                    const [cx, cy] = cell
+                      .getAttribute("data-xy")!
+                      .split(",")
+                      .map(Number);
+                    if (!pending || pending[0] !== cx || pending[1] !== cy)
+                      setPending([cx, cy]);
+                  }
+                }}
                 style={{
                   gridTemplateColumns: `repeat(${cols},minmax(0,1fr))`,
                 }}
@@ -318,7 +448,21 @@ export default function Player() {
                           onPointerDown={(e) => {
                             e.preventDefault();
                             (e.target as HTMLElement).focus();
+                            dragging.current = true;
                             if (!start) setStart([x, y]);
+                            const release = () => {
+                              dragging.current = false;
+                              window.removeEventListener("pointerup", release);
+                              window.removeEventListener(
+                                "pointercancel",
+                                release,
+                              );
+                            };
+                            window.addEventListener("pointerup", release);
+                            window.addEventListener("pointercancel", release);
+                          }}
+                          onFocus={() => {
+                            if (start) setPending([x, y]);
                           }}
                           onPointerUp={(e) => {
                             if (start && (start[0] !== x || start[1] !== y)) {
@@ -425,6 +569,7 @@ export default function Player() {
                 )}
               </div>
             </div>
+            {actions}
           </div>
           <aside className={`play-clues ${p.type}`} ref={clueList}>
             {p.type === "word-search" ? (
@@ -542,42 +687,7 @@ export default function Player() {
           })}
         </div>
       )}
-      <div className="button-row player-actions">
-        <button className="primary" onClick={() => check()}>
-          {copy.checkPuzzle}
-        </button>
-        {p.type === "crossword" && (
-          <>
-            <button onClick={() => check("letter")}>{copy.checkLetter}</button>
-            <button onClick={() => check("word")}>{copy.checkWord}</button>
-          </>
-        )}
-        {p.options.allowReveal && (
-          <button
-            onClick={() => {
-              if (p.type === "word-search")
-                setFound(p.entries.map((e) => e.word));
-              else setAnswers(expected);
-              setMessage(copy.answersRevealed);
-            }}
-          >
-            {copy.revealAnswers}
-          </button>
-        )}
-        <button
-          onClick={() => {
-            setAnswers({});
-            setFound([]);
-            setCheckedKeys(new Set());
-            setMessage(copy.answersCleared);
-          }}
-        >
-          {copy.startAgain}
-        </button>
-      </div>
-      <p className={done ? "success-message" : "play-message"} role="status">
-        {message || copy.playIdle}
-      </p>
+      {!gridType && actions}
       <p className="help">{copy.playPracticeNote}</p>
       <a href={`/#p=${encode(p)}`} className="text-button with-arrow">
         {copy.openInMaker} <ArrowRight />

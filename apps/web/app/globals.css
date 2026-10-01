@@ -52,6 +52,9 @@
 }
 body {
   margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-interface), sans-serif;
@@ -100,7 +103,9 @@ button {
   border-radius: 4px;
 }
 @media (hover: hover) {
-  button:not(.primary):hover:not(:disabled) {
+  button:not(.primary, [aria-pressed="true"], [aria-checked="true"]):hover:not(
+      :disabled
+    ) {
     background: var(--desk);
   }
 }
@@ -183,9 +188,9 @@ code {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
-/* Keeps the footer at the bottom on short pages (header 64px, footer about 170px). */
+/* Keeps the footer at the bottom on short pages. */
 main {
-  min-height: calc(100dvh - 234px);
+  flex: 1 0 auto;
 }
 .skip-link {
   position: absolute;
@@ -214,14 +219,12 @@ svg text[font-family="OpenDyslexic"] {
 /* Header */
 .site-header {
   position: relative;
-  max-width: 1440px;
-  margin: auto;
   height: 64px;
   display: flex;
   align-items: center;
   gap: 28px;
   border-bottom: 1px solid var(--rule);
-  padding: 0 60px;
+  padding: 0 max(60px, calc((100% - 1320px) / 2));
 }
 .wordmark {
   font-size: 23px;
@@ -476,8 +479,8 @@ svg text[font-family="OpenDyslexic"] {
   margin-top: 12px;
   padding: 9px 12px;
   border: 1px solid var(--rule);
-  border-left: 3px solid var(--highlight);
-  font-size: 12.5px;
+  border-left: 3px solid var(--muted);
+  font-size: 13px;
   line-height: 1.5;
 }
 .list-warnings ul {
@@ -946,8 +949,7 @@ a.primary:hover {
 
 /* Footer */
 .site-footer {
-  max-width: 1320px;
-  margin: 72px auto 0;
+  margin: 72px max(60px, calc((100% - 1320px) / 2)) 0;
   border-top: 1px solid var(--rule);
   padding: 24px 0 40px;
   display: flex;
@@ -1166,8 +1168,12 @@ a.primary:hover {
 }
 
 /* Player and dialogs */
-.player h1 {
-  margin-bottom: 10px;
+.content-page.player {
+  margin-top: 28px;
+}
+.content-page.player h1 {
+  font-size: 36px;
+  margin-bottom: 6px;
 }
 .player-instructions {
   font-size: 16px;
@@ -1177,8 +1183,8 @@ a.primary:hover {
   justify-content: space-between;
   gap: 12px;
   border-block: 1px solid var(--rule);
-  padding: 12px 0;
-  margin: 22px 0;
+  padding: 9px 0;
+  margin: 14px 0 12px;
   font-size: 14px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1196,7 +1202,7 @@ a.primary:hover {
   gap: 40px;
 }
 .current-clue {
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 9px 12px;
   background: color-mix(in srgb, var(--highlight) 30%, var(--surface));
   border-left: 3px solid var(--highlight);
@@ -1206,10 +1212,28 @@ a.primary:hover {
 .current-clue b {
   margin-right: 4px;
 }
+/* Size cells so the grid, the check buttons and the clue bar fit on a laptop screen. */
 .play-grid-wrap {
+  --cell: clamp(24px, calc((100dvh - 410px) / var(--rows, 10)), 56px);
   position: relative;
-  max-width: 570px;
+  width: min(100%, calc(var(--cols, 10) * var(--cell)));
   margin-top: 14px;
+}
+.play-grid-wrap .play-grid > button,
+.play-grid-wrap .cross-cell {
+  font-size: calc(var(--cell) * 0.46);
+}
+.player-layout > div:first-child {
+  min-width: 0;
+}
+@media (min-width: 861px) {
+  .play-clues {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+  }
 }
 .play-grid {
   position: relative;
@@ -1308,6 +1332,11 @@ a.primary:hover {
   pointer-events: none;
   overflow: visible;
 }
+.found-strokes line.pending {
+  opacity: 0.4;
+  animation: none;
+  stroke-dasharray: none;
+}
 .found-strokes line {
   stroke: var(--highlight);
   stroke-width: 0.74;
@@ -1358,6 +1387,16 @@ a.primary:hover {
   font-size: 14px;
   font-weight: 400;
   width: 100%;
+}
+/* On Chalkboard a lighter mix stays yellow instead of turning khaki. */
+:root[data-theme="dark"] .cross-cell.in-word,
+:root[data-theme="dark"] .clue.is-current,
+:root[data-theme="dark"] .current-clue {
+  background: color-mix(in srgb, var(--highlight) 16%, var(--surface));
+}
+:root[data-theme="dark"] .cross-cell.in-word {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--highlight) 45%, transparent);
 }
 .clue.is-current {
   background: color-mix(in srgb, var(--highlight) 30%, var(--surface));
@@ -1413,7 +1452,7 @@ a.primary:hover {
   font-weight: 600;
 }
 .player-actions {
-  margin-top: 32px;
+  margin-top: 16px;
 }
 .play-message,
 .success-message {
@@ -1481,6 +1520,38 @@ dialog::backdrop {
   width: 100%;
   cursor: auto;
 }
+.zoom-hint {
+  display: none;
+}
+/* Phones: show the sheet at print size and let people pan and pinch around it. */
+@media (max-width: 700px) {
+  .zoom-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: 8px 10px 0;
+  }
+  .zoom-hint {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin: -8px 0 8px;
+  }
+  .zoom-pages {
+    overflow: auto;
+    height: calc(100dvh - 92px);
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+  .zoom-pages .paper {
+    width: 816px;
+    max-width: none;
+  }
+}
 .saved-row {
   display: flex;
   align-items: center;
@@ -1519,7 +1590,9 @@ dialog::backdrop {
   align-items: center;
 }
 .saved-row .danger {
-  color: var(--mark);
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   padding: 8px 4px;
 }
 .undo-row {
@@ -1609,10 +1682,23 @@ button.paper:hover:not(:disabled) {
 .action-status:empty {
   display: none;
 }
+.export-bar {
+  --toast-gap: 8px;
+}
+/* Notices float above the sticky bar so the bar keeps its height. */
 .action-status {
-  margin-top: 10px;
+  position: absolute;
+  left: var(--pad);
+  right: var(--pad);
+  bottom: calc(100% + var(--toast-gap));
   display: grid;
   gap: 8px;
+  z-index: 4;
+}
+.action-status .message,
+.action-status .support-note {
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 .action-status .message,
 .action-status .support-note {
@@ -1761,6 +1847,11 @@ details.formats {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
+    align-items: start;
+  }
+  .play-clues section h2,
+  .play-clues section + section h2 {
+    margin-top: 0;
   }
   .play-clues.word-search {
     display: block;
@@ -2060,6 +2151,12 @@ details.formats {
   .support-note button {
     min-height: 44px;
     min-width: 44px;
+  }
+  select,
+  input:not([type="checkbox"], [type="range"]),
+  .reshuffle,
+  .pitch-link {
+    min-height: 44px;
   }
   details > summary,
   .text-button,
