@@ -1281,7 +1281,7 @@ export const landingPages: Topic[] = [
     description:
       "Puzzle book maker: build a PDF book from word search, crossword and scramble puzzles with the book command. Letter or A4 only. Free, and MIT licensed.",
     body: [
-      "Make each puzzle first. Run pnpm puzzleloom make word-search --words words.txt --seed 7 --out one.puzzleloom.json for every puzzle in the book. Then write a small JSON spec with a files list (paths relative to the spec), an optional title, and key set to appended, none or only. Build the book with pnpm puzzleloom book book.json --pdf book.pdf.",
+      "Make each puzzle first. Run node packages/cli/bin.mjs make word-search --words words.txt --seed 7 --out one.puzzleloom.json for every puzzle in the book. Then write a small JSON spec with a files list (paths relative to the spec), an optional title, and key set to appended, none or only. Build the book with node packages/cli/bin.mjs book book.json --pdf book.pdf.",
       "Puzzleloom supports two page sizes, Letter and A4. Letter is the same as the 8.5 by 11 inch trim size that Amazon KDP offers. Other trim sizes, such as 6 by 9 or 8 by 10, are not supported, and there are no bleed or gutter settings. Print a proof copy and check margins before you order a stack.",
       "Puzzleloom is MIT licensed, so commercial use is fine. You are responsible for your own word lists and clues, so write them yourself. An AI assistant can do the same work through the local MCP server: it writes the clues, and Puzzleloom guarantees a valid grid and answer key.",
     ],
@@ -1335,7 +1335,7 @@ export const landingPages: Topic[] = [
     description:
       "Word search book generator: make many puzzles with the CLI, combine them into one PDF with answer keys, on Letter or A4. Free, MIT licensed, no watermark.",
     body: [
-      "Make one word list per puzzle in a text file, then generate each puzzle with the CLI, for example pnpm puzzleloom make word-search --words dinosaurs.txt --difficulty hard --size 18 --seed 12 --out dinosaurs.puzzleloom.json. Give each puzzle its own seed so you can regenerate it exactly. Then pass the files to the book command.",
+      "Make one word list per puzzle in a text file, then generate each puzzle with the CLI, for example node packages/cli/bin.mjs make word-search --words dinosaurs.txt --difficulty hard --size 18 --seed 12 --out dinosaurs.puzzleloom.json. Give each puzzle its own seed so you can regenerate it exactly. Then pass the files to the book command.",
       "Vary the book. Mix Easy, Medium and Hard, and vary the grid between 12 by 12 and 20 by 20. For a large-print edition, add --font-size XL and keep grids small. The printed IDs on each puzzle let you match a puzzle to its key.",
       "Puzzleloom supports Letter and A4 only, with no watermark. If you plan to sell a book, write your own word lists and check that your puzzles are different from existing books. MIT means commercial use of the tool is allowed, and the lists are yours.",
     ],

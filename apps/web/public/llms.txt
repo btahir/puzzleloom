@@ -3,11 +3,11 @@
 Local, deterministic word-puzzle generator. No API keys or network services.
 
 ## Commands (from the repository)
-- pnpm puzzleloom make crossword --words words.txt --seed 42 --out puzzle.json --pdf puzzle.pdf --json
-- pnpm puzzleloom render puzzle.json --pdf class.pdf --variants 30 --key appended --json
-- pnpm puzzleloom check puzzle.json --json
-- pnpm puzzleloom link puzzle.json --json
-- pnpm puzzleloom book book.json --pdf book.pdf --json
+- node packages/cli/bin.mjs make crossword --words words.txt --seed 42 --out puzzle.json --pdf puzzle.pdf --json
+- node packages/cli/bin.mjs render puzzle.json --pdf class.pdf --variants 30 --key appended --json
+- node packages/cli/bin.mjs check puzzle.json --json
+- node packages/cli/bin.mjs link puzzle.json --json
+- node packages/cli/bin.mjs book book.json --pdf book.pdf --json
 - pnpm mcp (stdio MCP server)
 
 Types: crossword, word-search, scramble, cryptogram.
