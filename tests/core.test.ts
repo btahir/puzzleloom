@@ -234,9 +234,15 @@ describe("puzzle engines", () => {
     ));
   it("handles palindrome occurrence paths only once", () =>
     expect(occurrences([letters("LEVEL")], "LEVEL")).toHaveLength(1));
+  it("explains one disconnected word with the letters that would link it", () =>
+    expect(() =>
+      generate({ type: "crossword", words: "GARDEN\nEARTH\nQUIZ" }),
+    ).toThrow(
+      "QUIZ didn’t fit: it shares no letters with the other words. Add a word with Q, U, I or Z.",
+    ));
   it("reports disconnected words, dense grids, repeated letters and contained words", () => {
     expect(() => generate({ type: "crossword", words: "AAA\nZZZ" })).toThrow(
-      /shares no letters/,
+      /ZZZ didn’t fit: it shares no letters with the other words/,
     );
     expect(() =>
       generate({

@@ -868,6 +868,24 @@ const layoutScore = (l: Layout) => {
   return w * h + Math.abs(w - h) * 4;
 };
 /** Starting guess for the grid side: about 2.3 cells per letter. */
+/** "A", "A and B", "A, B and C". */
+function andList(items: readonly string[]): string {
+  return items.length < 2
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+/** Plain explanation for words that share no letters with any other word. */
+function disconnectedMessage(words: readonly string[]): string {
+  if (words.length === 1) {
+    const unique = [...new Set(letters(words[0]))];
+    const options =
+      unique.length < 2
+        ? unique[0]
+        : `${unique.slice(0, -1).join(", ")} or ${unique[unique.length - 1]}`;
+    return `${words[0]} didn’t fit: it shares no letters with the other words. Add a word with ${options}.`;
+  }
+  return `${andList(words)} didn’t fit: none of them shares a letter with any other word in the list. Add words that share letters with them, or remove them.`;
+}
 export function crosswordSize(entries: readonly Entry[]): number {
   const total = entries.reduce((n, e) => n + letters(e.word).length, 0),
     longest = Math.max(0, ...entries.map((e) => letters(e.word).length));
@@ -924,10 +942,10 @@ function crossword(
     );
     throw new PuzzleError(
       disconnected.length
-        ? `${disconnected.join(", ")} shares no letters with the other words. Add a connecting word.`
+        ? disconnectedMessage(disconnected)
         : auto
-          ? `Could not find a layout that crosses ${missing.join(", ")} with the other words. Add a word that shares letters with ${missing.length > 1 ? "them" : "it"}, or remove ${missing.length > 1 ? "them" : "it"}.`
-          : `Could not place ${missing.join(", ")} in a connected ${usedCap} × ${usedCap} grid. Try a larger grid, leave the size on automatic, or edit the list.`,
+          ? `${andList(missing)} couldn’t be fitted into the grid without touching another word. Try Reshuffle, add one more word, or remove ${andList(missing)}.`
+          : `${andList(missing)} ${missing.length > 1 ? "don’t" : "doesn’t"} fit in a connected ${usedCap} × ${usedCap} grid. Choose a larger grid, switch the grid size to Auto, or edit the list.`,
       missing,
     );
   }
@@ -1384,9 +1402,9 @@ export function decode(code: string): Puzzle {
     const data = unzlibSync(bytes, { out });
     if (data.length >= out.length) throw new Error("Too large");
     return readPuzzle(JSON.parse(strFromU8(data)));
-  } catch (e) {
+  } catch {
     throw new PuzzleError(
-      `Could not open this play link. ${e instanceof Error ? e.message : ""}`,
+      "This link is incomplete. It may have been cut off when it was copied.",
     );
   }
 }
