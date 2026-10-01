@@ -92,13 +92,13 @@ pnpm bench        # crossword quality benchmark; writes docs/build/bench.md
 
 The implementation is present. Read `docs/build/PROGRESS.md` and `docs/build/ACCEPTANCE.md` for verified state. The original binding brief is preserved in `docs/build/BRIEF.md`; README.md is now the public usage guide.
 
-- Run `pnpm puzzleloom --help` for the CLI. `--json` emits `{ok,result}` or `{ok:false,error}`. Exit 0 is success, 1 is an input/runtime failure, and 2 is an unknown-command usage failure.
-- Create: `pnpm puzzleloom make crossword --words words.txt --seed 42 --out lesson.puzzleloom.json --pdf lesson.pdf --json`.
-- Validate: `pnpm puzzleloom check lesson.puzzleloom.json --json`.
-- Render: `pnpm puzzleloom render lesson.puzzleloom.json --pdf class.pdf --variants 30 --key appended`.
-- Link: `pnpm puzzleloom link lesson.puzzleloom.json --json`.
-- Book: `pnpm puzzleloom book book.json --pdf book.pdf`; the spec has `files` (paths relative to the spec), optional `title`, and `key` (`appended`, `none`, or `only`).
-- MCP: configure a local stdio server whose command is `pnpm`, arguments are `["mcp"]`, and working directory is the checkout. For clients that cannot specify a working directory, use `node --import /absolute/checkout/node_modules/tsx/dist/loader.mjs /absolute/checkout/packages/mcp/src/index.ts`. Tools: `create_puzzle`, `validate_puzzle`, `render_pdf`, `render_image`, `make_play_link`, `make_book`, `list_options`. Tool schemas are discoverable via MCP.
+- Run `node packages/cli/bin.mjs --help` for the CLI (`pnpm puzzleloom` is the same thing for humans, but `pnpm` appends an `[ELIFECYCLE]` line to stdout on failure, so agents and scripts should use the `node` form). `--json` always prints exactly one JSON document on stdout: `{ok,result}` or `{ok:false,error}` (a failed `check` adds `errors`; word problems add `words`). Exit 0 is success, 1 is an input/runtime failure, and 2 is an unknown-command usage failure.
+- Create: `node packages/cli/bin.mjs make crossword --words words.txt --seed 42 --out lesson.puzzleloom.json --pdf lesson.pdf --json`. The result is `{puzzle, warnings, path?, pdf?}`; `warnings` is `[{code, word, message}]` for characters removed from words (`H2O` becomes `HO`), skipped lines and duplicates. Leave `--size` off (or `--size auto`) for automatic grid sizing; `--size 8..30` forces an exact size. The size used is `puzzle.options.size`.
+- Validate: `node packages/cli/bin.mjs check lesson.puzzleloom.json --json` (exit 1 with `errors` when a guarantee fails, including a word-search grid that spells a blocked word).
+- Render: `node packages/cli/bin.mjs render lesson.puzzleloom.json --pdf class.pdf --variants 30 --key appended`.
+- Link: `node packages/cli/bin.mjs link lesson.puzzleloom.json --json`.
+- Book: `node packages/cli/bin.mjs book book.json --pdf book.pdf`; the spec has `files` (paths relative to the spec), optional `title`, and `key` (`appended`, `none`, or `only`).
+- MCP: configure a local stdio server whose command is `pnpm`, arguments are `["mcp"]`, and working directory is the checkout. For clients that cannot specify a working directory, use `node --import /absolute/checkout/node_modules/tsx/dist/loader.mjs /absolute/checkout/packages/mcp/src/index.ts`. `create_puzzle` returns `{puzzle, warnings}` (and `path` when it wrote a file); leave `options.size` out for automatic sizing. Tools: `create_puzzle`, `validate_puzzle`, `render_pdf`, `render_image`, `make_play_link`, `make_book`, `list_options`. Tool schemas are discoverable via MCP.
 - The project schema is generated at `apps/web/public/puzzleloom.schema.json`. A project includes its seed, options, inputs and solved layout. Validate untrusted projects before rendering.
 - UI labels and static content live in `apps/web/src/content/ui.ts` and `pages.ts`. Generator errors remain in the shared core; dynamic UI messages are composed at the call sites.
 - `pnpm assets` regenerates font bundles from the original fonts in `assets/fonts`. OpenDyslexic is embedded without subsetting. Never modify the source font files.

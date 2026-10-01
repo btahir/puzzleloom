@@ -1,22 +1,32 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   TYPES,
   validate,
+  explainIssues,
+  PuzzleError,
   type PuzzleType,
   type Options,
 } from "../../core/src/index";
+import { ZodError } from "zod";
 import {
   create,
+  readJSON,
+  readText,
   readProject,
   renderPDF,
   renderImage,
   makeLink,
   makeBook,
 } from "./operations";
+function parseSize(text: string) {
+  const size = Number(text);
+  if (!/^\d+$/.test(text) || size < 8 || size > 30)
+    throw new Error("size must be a whole number from 8 to 30, or auto.");
+  return size;
+}
 export async function main(argv = process.argv.slice(2)) {
   let json = argv.includes("--json");
   try {
@@ -50,7 +60,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (v.help || !command) {
       result = {
         commands: [
-          "make <type> --words words.txt [--quote text] [--seed N] [--out puzzle.json] [--pdf out.pdf]",
+          "make <type> --words words.txt [--quote text] [--seed N] [--size auto|8..30] [--out puzzle.json] [--pdf out.pdf]",
           "render <project.json> --pdf out.pdf [--variants 1..40] [--key appended|separate|none]",
           "render <project.json> --svg|--png --out image.svg",
           "check <project.json>",
@@ -59,7 +69,7 @@ export async function main(argv = process.argv.slice(2)) {
           "mcp",
         ],
         options:
-          "--json --title --paper letter|a4 --size 8..30 --difficulty easy|medium|hard --font atkinson|opendyslexic --font-size S|M|L|XL --language en|es|fr|de|pt|it|nl",
+          "--json --title --paper letter|a4 --size auto|8..30 (default auto) --difficulty easy|medium|hard --font atkinson|opendyslexic --font-size S|M|L|XL --language en|es|fr|de|pt|it|nl",
         exitCodes: { success: 0, failure: 1, usage: 2 },
       };
     } else if (command === "mcp") {
@@ -79,7 +89,8 @@ export async function main(argv = process.argv.slice(2)) {
         throw new Error("seed must be an integer from 0 to 4294967295");
       const options: Partial<Options> = {
         ...(v.paper ? { paper: v.paper as Options["paper"] } : {}),
-        ...(v.size ? { size: Number(v.size) } : {}),
+        ...(v.size && v.size !== "auto" ? { size: parseSize(v.size) } : {}),
+        ...(v.size === "auto" ? { autoSize: true } : {}),
         ...(v.difficulty
           ? { difficulty: v.difficulty as Options["difficulty"] }
           : {}),
@@ -92,8 +103,8 @@ export async function main(argv = process.argv.slice(2)) {
       if (command === "make") {
         if (!TYPES.includes(arg as PuzzleType))
           throw new Error("Choose a puzzle type: " + TYPES.join(", "));
-        const text = v.words ? await readFile(v.words, "utf8") : undefined;
-        const puzzle = await create(
+        const text = v.words ? await readText(v.words, "word list") : undefined;
+        const { puzzle, warnings } = await create(
           {
             type: arg as PuzzleType,
             words: text,
@@ -114,20 +125,31 @@ export async function main(argv = process.argv.slice(2)) {
           : undefined;
         result = {
           puzzle,
+          warnings,
           ...(v.out ? { path: resolve(v.out) } : {}),
           ...(output ? { pdf: output } : {}),
         };
+        if (!json)
+          for (const w of warnings) console.error(`warning: ${w.message}`);
       } else if (command === "check") {
         if (!arg) throw new Error("Specify a project path");
-        const puzzle = await readProject(arg);
-        result = validate(puzzle);
+        const report = validate(await readJSON(arg));
+        if (!report.valid)
+          throw Object.assign(new Error(report.errors.join(" ")), {
+            errors: report.errors,
+          });
+        result = report;
       } else if (command === "link") {
         if (!arg) throw new Error("Specify a project path");
         result = { url: makeLink(await readProject(arg)) };
       } else if (command === "render") {
         if (!arg) throw new Error("Specify a project path");
         const puzzle = await readProject(arg);
-        puzzle.options = { ...puzzle.options, ...options };
+        // The layout is already fixed, so a size override has no meaning here.
+        const { size: _size, autoSize: _auto, ...overrides } = options;
+        void _size;
+        void _auto;
+        puzzle.options = { ...puzzle.options, ...overrides };
         if (v.pdf)
           result = await renderPDF(
             puzzle,
@@ -156,8 +178,24 @@ export async function main(argv = process.argv.slice(2)) {
     );
   } catch (e) {
     process.exitCode = process.exitCode || 1;
-    const message = e instanceof Error ? e.message : String(e);
-    if (json) console.log(JSON.stringify({ ok: false, error: message }));
+    const message =
+      e instanceof ZodError
+        ? explainIssues(e).join(" ")
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    const words =
+      e instanceof PuzzleError && e.words.length ? e.words : undefined;
+    const errors = (e as { errors?: string[] }).errors;
+    if (json)
+      console.log(
+        JSON.stringify({
+          ok: false,
+          error: message,
+          ...(errors ? { errors } : {}),
+          ...(words ? { words } : {}),
+        }),
+      );
     else console.error(message);
   }
 }

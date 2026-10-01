@@ -41,15 +41,27 @@ Browser tests use `CHROMIUM_PATH` when provided, otherwise system Chromium if in
 
 ```bash
 pnpm puzzleloom make crossword --words words.txt --seed 42 \
-  --out lesson.puzzleloom.json --pdf lesson.pdf --json
-pnpm puzzleloom check lesson.puzzleloom.json --json
+  --out lesson.puzzleloom.json --pdf lesson.pdf
+pnpm puzzleloom check lesson.puzzleloom.json
 pnpm puzzleloom render lesson.puzzleloom.json --variants 30 --pdf class.pdf
 pnpm puzzleloom render lesson.puzzleloom.json --svg --out lesson.svg
 pnpm puzzleloom link lesson.puzzleloom.json
 pnpm mcp
 ```
 
+Scripts and agents should call the CLI directly with Node, because `pnpm <script>` appends its own `[ELIFECYCLE]` line to stdout when a command fails, which breaks `--json`:
+
+```bash
+node packages/cli/bin.mjs make crossword --words words.txt --seed 42 --json
+```
+
+(`pnpm exec tsx packages/cli/src/index.ts ...` is equivalent.) With `--json`, stdout is always exactly one JSON document: `{"ok":true,"result":...}` on success, `{"ok":false,"error":"..."}` on failure (plus `errors` for a failed `check` and `words` when specific words are to blame). Exit codes are stable: 0 success, 1 input or runtime failure, 2 unknown command.
+
 Types: `crossword`, `word-search`, `scramble`, and `cryptogram`. For cryptograms use `--quote "Your message"` or a text file with `--words`. `--key` accepts `appended`, `separate`, or `none`. Run `pnpm puzzleloom --help` for options.
+
+`--size` is `auto` by default: the engine picks the smallest comfortable grid for your list (crosswords widen the allowed box only until a layout fits, then keep the most compact one; word searches scale with the letter count and difficulty). Give `--size 8..30` to force an exact size. The size used is recorded in the project as `options.size`, with `options.autoSize` saying whether the engine chose it. `make` also returns `warnings`, an array of `{code, word, message}` for anything it changed or skipped in your list: characters removed from a word (`H2O` becomes `HO`), lines without letters, and duplicates. Text output prints them to stderr as `warning: ...`.
+
+Word-search fill never spells a word from the built-in blocklist (English, plus brief Spanish, French and German profanity and slurs) in any of the eight directions, and `check` flags a grid that does. A word you typed yourself is exempt, and so is a blocked sequence inside one of your own words.
 
 A book spec is `{"files":["lesson.puzzleloom.json","another.puzzleloom.json"],"title":"Our puzzle book","key":"appended"}`. Paths are relative to the spec. Run `pnpm puzzleloom book book.json --pdf book.pdf`.
 

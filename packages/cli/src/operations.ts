@@ -1,13 +1,15 @@
-import { readFile, writeFile, stat } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import {
   readPuzzle,
-  generate,
+  generateDetailed,
   encode,
   variants,
+  PuzzleError,
   type Puzzle,
   type Input,
+  type Warning,
 } from "../../core/src/index";
 import {
   toPDF,
@@ -16,20 +18,42 @@ import {
   type KeyMode,
 } from "../../render/src/index";
 import { SITE_URL } from "../../../apps/web/src/config/site";
+/** Read a file, turning the usual system errors into plain sentences. */
+export async function readText(path: string, what = "file") {
+  try {
+    return await readFile(path, "utf8");
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ENOENT")
+      throw new Error(`Could not find the ${what} ${path}.`, { cause: e });
+    if (code === "EISDIR")
+      throw new Error(`${path} is a folder, not a ${what}.`, { cause: e });
+    throw new Error(`Could not read the ${what} ${path}.`, { cause: e });
+  }
+}
 export async function readJSON(path: string) {
-  if ((await stat(path)).size > 300000)
+  const text = await readText(path, "project file");
+  if (text.length > 300000)
     throw new Error("Input file must be smaller than 300 KB.");
-  return JSON.parse(await readFile(path, "utf8"));
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new PuzzleError(`${path} is not valid JSON.`);
+  }
 }
 export const readProject = async (path: string) =>
   readPuzzle(await readJSON(path));
 export function makeLink(p: Puzzle) {
   return `${SITE_URL}/play/#${encode(p)}`;
 }
-export async function create(input: Input, out?: string) {
-  const puzzle = generate(input);
-  if (out) await writeFile(out, JSON.stringify(puzzle, null, 2) + "\n");
-  return puzzle;
+/** Make a puzzle. `warnings` lists anything changed or skipped in the word list. */
+export async function create(
+  input: Input,
+  out?: string,
+): Promise<{ puzzle: Puzzle; warnings: Warning[] }> {
+  const made = generateDetailed(input);
+  if (out) await writeFile(out, JSON.stringify(made.puzzle, null, 2) + "\n");
+  return made;
 }
 export async function renderPDF(
   p: Puzzle,

@@ -1,9 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { resolve } from "node:path";
 import { z } from "zod";
 import {
   TYPES,
   optionsSchema,
+  optionsInputSchema,
+  explainIssues,
   readPuzzle,
   validate,
 } from "../../core/src/index";
@@ -26,24 +29,34 @@ const guard =
       return result(await fn(args));
     } catch (e) {
       return {
-        ...result({ error: e instanceof Error ? e.message : String(e) }),
+        ...result({
+          error:
+            e instanceof z.ZodError
+              ? explainIssues(e).join(" ")
+              : e instanceof Error
+                ? e.message
+                : String(e),
+        }),
         isError: true,
       };
     }
   };
 server.tool(
   "create_puzzle",
-  "Create a deterministic puzzle and optionally write a project file.",
+  "Create a deterministic puzzle and optionally write a project file. Returns { puzzle, warnings }; warnings lists words that were changed (for example H2O became HO) or skipped. Leave options.size out and the engine picks the grid size; the size used is recorded in puzzle.options.size. Title is limited to 100 characters, clues to 200 and a quote to 600.",
   {
     type: z.enum(TYPES),
-    words: z.string().max(30000).optional(),
-    quote: z.string().max(600).optional(),
+    words: z.string().optional(),
+    quote: z.string().optional(),
     seed: z.number().int().min(0).max(4294967295).optional(),
-    title: z.string().max(100).optional(),
-    options: optionsSchema.partial().optional(),
+    title: z.string().optional(),
+    options: optionsInputSchema.partial().optional(),
     out: z.string().optional(),
   },
-  guard(async (args) => create(args, args.out)),
+  guard(async (args) => ({
+    ...(await create(args, args.out)),
+    ...(args.out ? { path: resolve(args.out) } : {}),
+  })),
 );
 server.tool(
   "validate_puzzle",
@@ -106,7 +119,8 @@ server.tool(
   {},
   guard(async () => ({
     types: TYPES,
-    defaults: optionsSchema.parse({}),
+    defaults: { ...optionsSchema.parse({}), size: "auto", autoSize: true },
+    sizeRange: [8, 30],
     maxWords: 40,
     maxVariants: 40,
     schema: "puzzleloom.puzzle/v1",
