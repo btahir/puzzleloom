@@ -9,6 +9,7 @@
   "quote": "Small seeds grow into wonderful things.",
   "options": {
     "size": 18,
+    "autoSize": false,
     "difficulty": "medium",
     "language": "en",
     "stripAccents": false,

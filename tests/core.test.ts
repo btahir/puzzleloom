@@ -11,6 +11,7 @@ import {
   shuffle,
   letters,
   occurrences,
+  directionsFor,
   encode,
   decode,
   variants,
@@ -75,6 +76,13 @@ describe("parser and seeded tools", () => {
         { word: "LEAF", clue: "A green part" },
       ],
       warnings: ["Removed duplicate CAFÉ."],
+      details: [
+        {
+          code: "duplicate-word",
+          word: "CAFÉ",
+          message: "Removed duplicate CAFÉ.",
+        },
+      ],
     });
   });
   it("normalizes composed accents and configurable ß", () => {
@@ -178,7 +186,9 @@ describe("puzzle engines", () => {
             });
             expect(validate(p).errors).toEqual([]);
             for (const word of words)
-              expect(occurrences(p.grid, word)).toHaveLength(1);
+              expect(
+                occurrences(p.grid, word, directionsFor(difficulty)),
+              ).toHaveLength(1);
           },
         ),
         { numRuns: 150 },

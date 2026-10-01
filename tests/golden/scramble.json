@@ -50,6 +50,7 @@
   "quote": "",
   "options": {
     "size": 18,
+    "autoSize": false,
     "difficulty": "medium",
     "language": "en",
     "stripAccents": false,

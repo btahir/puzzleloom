@@ -69,6 +69,10 @@
               "maximum": 30,
               "default": 18
             },
+            "autoSize": {
+              "type": "boolean",
+              "default": false
+            },
             "difficulty": {
               "type": "string",
               "enum": [
