@@ -26,9 +26,23 @@ import {
   type Saved,
 } from "../lib/storage";
 
+/** The prerendered starter puzzle uses this seed so the static HTML is deterministic. */
+const STARTER_SEED = 4317;
 const newSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const SUPPORT_NOTE_KEY = "puzzleloom-support-note";
 const DEFAULT_TITLE = "In the garden";
+/** "Week 3 spelling" + crossword -> "week-3-spelling-crossword". */
+function fileStem(title: string, type: PuzzleType) {
+  const slug = title
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  const kind = type === "scramble" ? "word-scramble" : type;
+  return !slug ? kind : slug.endsWith(kind) ? slug : `${slug}-${kind}`;
+}
 function download(data: BlobPart, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }));
   const a = document.createElement("a");
@@ -76,6 +90,7 @@ export default function Maker({
   initialWords = DEFAULT_WORDS,
   initialTitle = DEFAULT_TITLE,
   initialQuote = QUOTES[0],
+  initialOptions,
   initialPuzzle,
   initialPreviews,
 }: {
@@ -83,6 +98,7 @@ export default function Maker({
   initialWords?: string;
   initialTitle?: string;
   initialQuote?: string;
+  initialOptions?: Partial<Options>;
   initialPuzzle?: Puzzle;
   initialPreviews?: { puzzle: string[]; answer: string[] };
 }) {
@@ -94,9 +110,10 @@ export default function Maker({
     [options, setOptions] = useState<Options>(() => ({
       ...optionsSchema.parse({}),
       ...(initialPuzzle?.options ?? {}),
+      ...(initialOptions ?? {}),
     })),
-    [autoSize, setAutoSize] = useState(true),
-    [seed, setSeed] = useState(4317),
+    [autoSize, setAutoSize] = useState(!initialOptions?.size),
+    [seed, setSeed] = useState(STARTER_SEED),
     [puzzle, setPuzzle] = useState<Puzzle | null>(initialPuzzle ?? null),
     [doneKey, setDoneKey] = useState(""),
     [previews, setPreviews] = useState(
@@ -124,13 +141,30 @@ export default function Maker({
   const unchanged =
     type === initialType &&
     (type === "cryptogram" ? quote === initialQuote : words === initialWords);
+  // A landing page's topic title (e.g. "Christmas word search") survives list edits.
+  const topicTitle = initialTitle !== DEFAULT_TITLE && type === initialType;
   const title =
     customTitle ??
-    (unchanged
+    (unchanged || topicTitle
       ? initialTitle
       : type !== "cryptogram" && words === DEFAULT_WORDS
         ? DEFAULT_TITLE
         : copy.defaultTitles[type]);
+  // A new puzzle gets its own layout number (and so its own printed ID). The static
+  // starter keeps STARTER_SEED; the first change of type, words or quote picks a fresh one.
+  const seedChosen = useRef(false);
+  useEffect(() => {
+    if (
+      type === initialType &&
+      words === initialWords &&
+      quote === initialQuote
+    )
+      return;
+    if (!seedChosen.current && seed === STARTER_SEED) {
+      seedChosen.current = true;
+      setSeed(newSeed());
+    }
+  }, [type, words, quote, seed, initialType, initialWords, initialQuote]);
   const workerReady = useRef<Promise<void>>(Promise.resolve());
   const worker = useRef<Worker | null>(null),
     seq = useRef(0),
@@ -167,6 +201,7 @@ export default function Maker({
     setAutoSize(
       (p.options as Options & { autoSize?: boolean }).autoSize ?? false,
     );
+    seedChosen.current = true;
     setSeed(p.seed);
     setDialog(null);
     setNotice(copy.puzzleOpened);
@@ -317,6 +352,10 @@ export default function Maker({
   const usedSize =
     puzzle && puzzle.type === type && hasGrid ? puzzle.options.size : null;
   const current = !busy && doneKey === inputKey;
+  const stem = puzzle ? fileStem(puzzle.title, puzzle.type) : "puzzle";
+  const setSuffix = count > 1 ? `-class-set-${count}` : "";
+  const imageName = (i: number, total: number) =>
+    `${stem}${showKey ? "-answers" : ""}${total > 1 ? `-page-${i + 1}` : ""}`;
   const canExport = !!puzzle && current && !error && !exporting;
   async function pdf(mode: "download" | "print" = "download") {
     if (!canExport) return;
@@ -348,7 +387,7 @@ export default function Maker({
       } else {
         download(
           bytes as BlobPart,
-          `puzzleloom-${puzzle!.id}.pdf`,
+          `${stem}${setSuffix}.pdf`,
           "application/pdf",
         );
         if (keyMode === "separate") {
@@ -360,7 +399,7 @@ export default function Maker({
           });
           download(
             key.bytes as BlobPart,
-            `puzzleloom-${puzzle!.id}-answers.pdf`,
+            `${stem}${setSuffix}-answers.pdf`,
             "application/pdf",
           );
         }
@@ -397,7 +436,11 @@ export default function Maker({
       for (let i = 0; i < sheets.length; i++) {
         const source = sheets[i].svg;
         if (format === "svg")
-          download(source, `${puzzle!.id}-${i + 1}.svg`, "image/svg+xml");
+          download(
+            source,
+            `${imageName(i, sheets.length)}.svg`,
+            "image/svg+xml",
+          );
         else {
           const url = URL.createObjectURL(
             new Blob([source], { type: "image/svg+xml" }),
@@ -418,7 +461,8 @@ export default function Maker({
           const blob = await new Promise<Blob | null>((r) =>
             canvas.toBlob(r, "image/png"),
           );
-          if (blob) download(blob, `${puzzle!.id}-${i + 1}.png`, "image/png");
+          if (blob)
+            download(blob, `${imageName(i, sheets.length)}.png`, "image/png");
         }
       }
     } catch (e) {
@@ -661,7 +705,10 @@ export default function Maker({
           )}
           <button
             className="reshuffle"
-            onClick={() => setSeed(newSeed())}
+            onClick={() => {
+              seedChosen.current = true;
+              setSeed(newSeed());
+            }}
             disabled={busy}
           >
             <Shuffle /> {busy ? copy.making : copy.newLayout}
@@ -963,7 +1010,10 @@ export default function Maker({
                 max="4294967295"
                 value={seed}
                 aria-describedby="seed-note"
-                onChange={(e) => setSeed(+e.target.value >>> 0)}
+                onChange={(e) => {
+                  seedChosen.current = true;
+                  setSeed(+e.target.value >>> 0);
+                }}
               />
               <span className="field-note" id="seed-note">
                 {copy.seedNote}
@@ -1104,7 +1154,7 @@ export default function Maker({
                 onClick={() =>
                   download(
                     JSON.stringify(puzzle, null, 2),
-                    `${puzzle!.id}.puzzleloom.json`,
+                    `${stem}.puzzleloom.json`,
                     "application/json",
                   )
                 }
@@ -1164,15 +1214,18 @@ export default function Maker({
           </button>
         </div>
         {dialog === "zoom" ? (
-          <div className="zoom-pages">
-            {currentPreviews.map((page, i) => (
-              <div
-                key={i}
-                className="paper"
-                dangerouslySetInnerHTML={{ __html: page }}
-              />
-            ))}
-          </div>
+          <>
+            <p className="zoom-hint">{copy.dragToMove}</p>
+            <div className="zoom-pages">
+              {currentPreviews.map((page, i) => (
+                <div
+                  key={i}
+                  className="paper"
+                  dangerouslySetInnerHTML={{ __html: page }}
+                />
+              ))}
+            </div>
+          </>
         ) : dialog === "share" ? (
           <>
             <p>{copy.shareBody}</p>
@@ -1227,7 +1280,11 @@ export default function Maker({
                     <strong>{s.puzzle.title}</strong>
                     <span>
                       {copy.savedMeta(
-                        LABELS[s.puzzle.type],
+                        s.puzzle.title
+                          .toLowerCase()
+                          .includes(LABELS[s.puzzle.type].toLowerCase())
+                          ? ""
+                          : LABELS[s.puzzle.type],
                         s.puzzle.id,
                         dateFormat.format(s.updated),
                       )}

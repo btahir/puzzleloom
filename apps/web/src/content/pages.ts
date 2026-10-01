@@ -1,4 +1,4 @@
-import type { PuzzleType } from "../../../../packages/core/src/index";
+import type { Options, PuzzleType } from "../../../../packages/core/src/index";
 
 export type Topic = {
   slug: string;
@@ -8,6 +8,11 @@ export type Topic = {
   /** The title printed on the starter sheet: the word list's topic, never the page name. */
   sheetTitle: string;
   type: PuzzleType;
+  /**
+   * Maker settings this page starts with (text size, difficulty, hints...).
+   * A `size` here switches the grid to a fixed size; leave it out for Auto.
+   */
+  options?: Partial<Options>;
   intro: string;
   /** Meta description, 140-160 characters. */
   description: string;
@@ -249,6 +254,7 @@ export const landingPages: Topic[] = [
     title: "Word scramble maker",
     sheetTitle: "Spelling words",
     type: "scramble",
+    options: { hint: "first" },
     intro:
       "Turn a spelling or vocabulary list into scrambled words with blanks for the answers. Add first-letter hints or your own clues.",
     description:
@@ -304,6 +310,7 @@ export const landingPages: Topic[] = [
     title: "Cryptogram maker",
     sheetTitle: "Secret message",
     type: "cryptogram",
+    options: { givenLetters: 2 },
     intro:
       "Type a quote or sentence and Puzzleloom encodes it with a letter-substitution cipher. Reveal a few starting letters, then print the puzzle with its solution.",
     description:
@@ -402,6 +409,7 @@ export const landingPages: Topic[] = [
     title: "Spelling word search maker",
     sheetTitle: "Long A spelling words",
     type: "word-search",
+    options: { difficulty: "easy" },
     intro:
       "Turn this week's spelling list into a word search. Choose Easy for early readers or Hard for backwards words, then print the sheet with a word bank.",
     description:
@@ -456,8 +464,9 @@ export const landingPages: Topic[] = [
     slug: "large-print-word-search-maker",
     shortTitle: "Large-print puzzles",
     title: "Large print word search maker",
-    sheetTitle: "In the garden",
+    sheetTitle: "Large print word search",
     type: "word-search",
+    options: { fontSize: "XL", size: 10, difficulty: "easy" },
     intro:
       "Make a word search with big letters and a small grid. Choose the L or XL text size and print the vector PDF on Letter or A4.",
     description:
@@ -512,6 +521,7 @@ export const landingPages: Topic[] = [
     title: "Spanish word search maker",
     sheetTitle: "Palabras en español",
     type: "word-search",
+    options: { language: "es" },
     intro:
       "Make a word search for Spanish vocabulary with accents and the letter Ñ kept. Pick Spanish under Language & more, or strip accents if your students do not use them.",
     description:
@@ -749,6 +759,7 @@ export const landingPages: Topic[] = [
     title: "Back-to-school word search",
     sheetTitle: "Back to school",
     type: "word-search",
+    options: { difficulty: "easy" },
     intro:
       "A first-week word search with classroom words you can edit. Add your school's mascot and your own routines, and print a class set.",
     description:
@@ -791,6 +802,7 @@ export const landingPages: Topic[] = [
     title: "Baby shower crossword",
     sheetTitle: "Baby shower crossword",
     type: "crossword",
+    options: { wordBank: true },
     intro:
       "A baby shower crossword you can personalize with clues about the parents. Print one for each guest, with an answer key for the host.",
     description:
@@ -875,6 +887,7 @@ export const landingPages: Topic[] = [
     title: "Birthday word search",
     sheetTitle: "Birthday word search",
     type: "word-search",
+    options: { difficulty: "easy" },
     intro:
       "A birthday word search with party words and room for the guest of honor's own. Pick a difficulty for the age group and print one per guest.",
     description:
@@ -1247,6 +1260,7 @@ export const landingPages: Topic[] = [
     title: "Word scramble generator",
     sheetTitle: "Animals",
     type: "scramble",
+    options: { hint: "first" },
     intro:
       "Generate scrambled words from any list. Scrambles use the original letters, are repeatable from a seed, and come with an answer key.",
     description:
@@ -1302,6 +1316,7 @@ export const landingPages: Topic[] = [
     title: "Puzzle book maker",
     sheetTitle: "Camping trip",
     type: "word-search",
+    options: { difficulty: "hard" },
     intro:
       "Combine puzzles into one printable PDF book with the command-line book command. Make a small sample first, then add the answer keys at the back.",
     description:
@@ -1357,6 +1372,7 @@ export const landingPages: Topic[] = [
     title: "Word search book generator",
     sheetTitle: "Dinosaurs",
     type: "word-search",
+    options: { difficulty: "hard" },
     intro:
       "Generate a whole book of word searches from original word lists. Use the CLI to make each puzzle, then combine them with answer keys at the back.",
     description:

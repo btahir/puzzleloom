@@ -62,6 +62,7 @@ export default async function Page({
       <Maker
         initialType={p.type}
         initialTitle={p.sheetTitle}
+        initialOptions={p.options}
         {...(isCrypto ? { initialQuote: p.words } : { initialWords: p.words })}
       />
       <article className="landing-notes">

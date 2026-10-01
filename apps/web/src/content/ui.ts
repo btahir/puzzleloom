@@ -108,6 +108,7 @@ export const copy = {
   previewStale: "Preview not updated. Fix the word list to see the new layout.",
   enlarge: "Enlarge",
   enlargePreview: "Enlarge the preview to proofread it",
+  dragToMove: "Drag to move around the page. Pinch to zoom.",
   answerKeyCaption: (mode: "appended" | "separate" | "none") =>
     mode === "appended"
       ? "Answer key · printed after the puzzle"
@@ -210,7 +211,7 @@ export const copy = {
   undo: "Undo",
   deletedNotice: (title: string) => `Deleted “${title}”.`,
   savedMeta: (type: string, id: string, date: string) =>
-    `${type} · ${id} · saved ${date}`,
+    `${type ? `${type} · ` : ""}${id} · saved ${date}`,
   dismissSupportNote: "Dismiss support note",
 
   // Dialogs
@@ -237,6 +238,9 @@ export const copy = {
   playLinkBrokenBody:
     "This link is incomplete. It may have been cut off when it was copied.",
   playLinkBrokenNext: "Ask for the link again, or make your own puzzle.",
+  playEmptyTitle: "Play a puzzle",
+  playEmptyBody:
+    "Play links open here. Make a puzzle and choose Play link to get one.",
   makeAPuzzle: "Make a puzzle",
   openingPuzzle: "Opening the puzzle…",
   everyWordFound: "Every word found.",
