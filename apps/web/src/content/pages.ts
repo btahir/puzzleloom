@@ -217,7 +217,7 @@ export const landingPages: Topic[] = [
       "Pick Hard for older students. Backwards words are the main difference between Hard and Medium.",
       "Avoid words that contain each other, such as CAT and CATALOG or SEA and SEAHORSE. Puzzleloom will not accept the pair.",
       "Short words (3 or 4 letters) are the hardest to spot in a large grid. Leave them out when you want a quick puzzle.",
-      "Print the word bank for younger solvers and leave it off for a harder puzzle.",
+      "For a harder sheet, choose Hard so words also run backwards and diagonally, and use a larger grid.",
       "Put a theme or a unit name in the title so the sheet is easy to file later.",
     ],
     faq: [
@@ -863,7 +863,7 @@ export const landingPages: Topic[] = [
       "Free birthday word search maker: 12 party words, add the guest of honor's name and interests, and print one per guest with an answer key on Letter or A4.",
     body: [
       "The starter list has 12 party words, from BALLOON and CONFETTI to INVITATION and SURPRISE. Add the guest of honor's name, age spelled out, hobbies, pets and favorite foods. A puzzle with 4 or 5 personal words feels made for the person.",
-      "Match difficulty to the age. For young children, choose Easy, 6 to 8 words and a 10 by 10 grid. For teens and adults, choose Hard and a larger grid. A word bank helps younger children, and you can leave it off for older guests.",
+      "Match difficulty to the age. For young children, choose Easy, 6 to 8 words and a 10 by 10 grid. For teens and adults, choose Hard and a larger grid. The word bank prints under the grid, so younger children can cross words off as they find them.",
       "A class set makes up to 40 versions, each with a different arrangement and its own answer key. At a party, give each guest a different version and a pencil. The sheet is plain black and white, so it prints cleanly on an ordinary printer.",
     ],
     words: seasons.party,
