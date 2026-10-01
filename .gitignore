@@ -45,3 +45,6 @@ apps/web/public/fonts/
 !docs/build/
 !docs/build/**
 apps/web/next-env.d.ts
+
+# Private launch drafts (never committed)
+docs/launch/drafts/

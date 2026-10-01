@@ -2,11 +2,11 @@
 
 ## One-line introduction
 
-Your words. A world of puzzles. Make a crossword, word search, scramble, or cryptogram, then print it with its answer key.
+Make a crossword, word search, word scramble or cryptogram from your own word list, then print it with the answer key. Free, no account, nothing uploaded.
 
 ## Short announcement
 
-Puzzleloom is a free puzzle maker for teachers, parents, and curious minds. Start with your own words, make a class set, or share a playable link. No accounts, watermarks, or uploads. Every puzzle is generated in your browser, and the CLI and local MCP server let your agent use the same engine.
+Puzzleloom is a free puzzle maker for teachers, parents, event hosts and puzzle-book makers. Paste your words, print a PDF with the answer key, make a class set of up to 40 versions, or share a play link. A crossword has every word in one grid, or the tool says which word didn't fit and why. No account, no ads, no watermark, no uploads. The CLI and a local MCP server run the same engine, so an AI assistant can write the clues while Puzzleloom guarantees the grid and the key.
 
 ## Details worth showing
 
