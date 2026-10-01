@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
+import { landingPages } from "../../apps/web/src/content/pages";
 import {
   generate,
   encode,
@@ -35,7 +36,7 @@ for (const [label, type] of [
     expect(download.suggestedFilename()).toMatch(/\.pdf$/);
     const path = await download.path();
     expect((await readFile(path!)).subarray(0, 4).toString()).toBe("%PDF");
-    await expect(page.getByRole("status")).toContainText("PDF is ready");
+    await expect(page.getByRole("status")).toContainText("PDF downloaded");
     await page.getByRole("button", { name: "Answer key", exact: true }).click();
     await expect(page.locator(".paper svg")).toContainText("ANSWER KEY");
     expect(type).toBeTruthy();
@@ -134,7 +135,7 @@ test("no network after load during generation, export, saves or player interacti
   });
   await page.getByRole("tab", { name: "Word search", exact: true }).click();
   await ready(page);
-  await page.getByRole("button", { name: "Reshuffle the puzzle" }).click();
+  await page.getByRole("button", { name: "Reshuffle", exact: true }).click();
   await ready(page);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   const event = page.waitForEvent("download");
@@ -302,7 +303,10 @@ test("static pages and player have no serious accessibility issues", async ({
     ).toEqual([]);
   }
 });
-test("touch selection finds a word on a mobile screen", async ({ browser }) => {
+test("touch selection finds a word on a mobile screen", async ({
+  browser,
+  baseURL,
+}) => {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     hasTouch: true,
@@ -315,7 +319,7 @@ test("touch selection finds a word on a mobile screen", async ({ browser }) => {
     seed: 42,
     options: { size: 8, difficulty: "easy" },
   });
-  await page.goto("http://127.0.0.1:4317/play/#" + encode(p));
+  await page.goto(baseURL + "/play/#" + encode(p));
   const q = p.placements[0];
   const first = page.locator(`[data-xy="${q.x},${q.y}"]`),
     last = page.locator(
@@ -367,7 +371,7 @@ test("maker remains functional offline after initial load", async ({
   const event = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download PDF", exact: true }).click();
   await event;
-  await expect(page.getByRole("status")).toContainText("PDF is ready");
+  await expect(page.getByRole("status")).toContainText("PDF downloaded");
 });
 test("opening another play link in the same tab replaces the puzzle and resets answers", async ({
   page,
@@ -386,10 +390,144 @@ test("opening another play link in the same tab replaces the puzzle and resets a
   await expect(page.getByLabel("Answer 1", { exact: true })).toHaveValue("");
   await page.goto("/play/#broken");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "This puzzle link needs another look.",
+    "This play link doesn't work",
   );
   await page.goto("/play/#" + encode(first));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "First puzzle",
   );
+});
+
+test("homepage shows the whole maker above the fold at 1440x900", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await ready(page);
+  const paper = await page.locator(".paper").boundingBox();
+  expect(paper!.y).toBeGreaterThan(0);
+  expect(paper!.y + paper!.height).toBeLessThanOrEqual(900);
+  await expect(page.getByLabel("Words and clues")).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toBeInViewport();
+  await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();
+});
+test("grid size defaults to auto and shows the size used", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  const auto = page.getByRole("radio", { name: "Auto" });
+  await expect(auto).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".grid-size")).toContainText(
+    /\d+ × \d+, chosen to fit/,
+  );
+  await page.getByRole("radio", { name: "Custom" }).click();
+  await expect(page.getByRole("slider", { name: "Grid size" })).toBeVisible();
+});
+test("list clean-up is reported next to the word list", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  await page
+    .getByLabel("Words and clues")
+    .fill(
+      "H2O: Water\nWATER: Wet stuff\nGARDEN: A place to grow\nGARDEN: Again\nHOT: Warm\nEARTH: Soil",
+    );
+  const notes = page.locator(".list-warnings");
+  await expect(notes).toContainText("Removed duplicate GARDEN");
+  await expect(notes).toContainText("removed “2”");
+  // A user's own list gets a plain title, not the example's.
+  await expect(page.getByLabel("Puzzle title", { exact: true })).toHaveValue(
+    "Crossword",
+  );
+});
+test("support note appears once per session after the first PDF", async ({
+  page,
+}) => {
+  await page.goto("/word-scramble-maker/");
+  await ready(page);
+  const download = page.getByRole("button", {
+    name: "Download PDF",
+    exact: true,
+  });
+  let event = page.waitForEvent("download");
+  await download.click();
+  await event;
+  const note = page.locator(".support-note");
+  await expect(note).toContainText("This one was free");
+  await expect(note.getByRole("link")).toHaveAttribute("href", "/support/");
+  await page.getByRole("button", { name: "Dismiss support note" }).click();
+  await expect(note).toHaveCount(0);
+  await page.reload();
+  await ready(page);
+  event = page.waitForEvent("download");
+  await download.click();
+  await event;
+  await expect(page.getByRole("status")).toContainText("PDF downloaded");
+  await expect(note).toHaveCount(0);
+});
+test("mobile header menu reaches Support", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  await expect(nav.getByRole("link", { name: "Support" })).toBeHidden();
+  const menu = page.getByRole("button", { name: "Menu" });
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await menu.click();
+  await nav.getByRole("link", { name: "Support" }).click();
+  await expect(page).toHaveURL(/\/support\/$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Support Puzzleloom",
+  );
+});
+test("landing pages render FAQ, JSON-LD and unique metadata", async ({
+  page,
+}) => {
+  const seen = new Set<string>();
+  for (const slug of [
+    "crossword-maker",
+    "christmas-word-search",
+    "cryptogram-maker",
+  ]) {
+    const topic = landingPages.find((p) => p.slug === slug)!;
+    await page.goto(`/${slug}/`);
+    await ready(page);
+    await expect(
+      page.getByRole("heading", { name: "Questions" }),
+    ).toBeVisible();
+    for (const f of topic.faq)
+      await expect(page.getByRole("heading", { name: f.q })).toBeVisible();
+    const ld = await page
+      .locator('script[type="application/ld+json"]')
+      .allTextContents();
+    const faq = ld
+      .map((t) => JSON.parse(t))
+      .find((d) => d["@type"] === "FAQPage");
+    expect(faq.mainEntity).toHaveLength(topic.faq.length);
+    expect(ld.some((t) => t.includes('"WebApplication"'))).toBe(true);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      "content",
+      topic.description,
+    );
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      new RegExp(`/${slug}/$`),
+    );
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      "content",
+      /\/og\.png$/,
+    );
+    const title = await page.title();
+    expect(seen.has(title)).toBe(false);
+    seen.add(title);
+    // The sample sheet uses the bundled print font, not a browser fallback.
+    const family = await page
+      .locator(".sample-print svg text")
+      .first()
+      .evaluate((el) => getComputedStyle(el).fontFamily);
+    expect(family).toContain("Puzzle Print Atkinson");
+  }
 });
