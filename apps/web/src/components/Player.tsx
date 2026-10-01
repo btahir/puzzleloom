@@ -328,9 +328,11 @@ export default function Player() {
           {copy.startAgain}
         </button>
       </div>
-      <p className={done ? "success-message" : "play-message"} role="status">
-        {message || copy.playIdle}
-      </p>
+      {!gridType && (
+        <p className={done ? "success-message" : "play-message"} role="status">
+          {message || copy.playIdle}
+        </p>
+      )}
     </>
   );
   return (
@@ -343,7 +345,20 @@ export default function Player() {
         <span>
           {p.title.includes(typeLabel) ? p.id : `${typeLabel} · ${p.id}`}
         </span>
-        <span>{progress}</span>
+        {gridType ? (
+          // Grid players report results here, next to the grid, so they stay in view.
+          <span className="meta-status">
+            <span
+              role="status"
+              className={done ? "success-message" : undefined}
+            >
+              {message}
+            </span>
+            <span>{progress}</span>
+          </span>
+        ) : (
+          <span>{progress}</span>
+        )}
       </div>
       {(p.type === "crossword" || p.type === "word-search") && (
         <div className={`player-layout ${p.type}`}>

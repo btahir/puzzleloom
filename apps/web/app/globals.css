@@ -1189,6 +1189,21 @@ a.primary:hover {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.meta-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 16px;
+  text-align: right;
+}
+.meta-status [role="status"]:not(:empty) {
+  color: var(--ink);
+  font-weight: 600;
+}
+.meta-status .success-message {
+  padding: 0;
+  color: var(--primary);
+}
 .lead-plain {
   font-size: 18px;
   margin-bottom: 8px;
@@ -1397,6 +1412,15 @@ a.primary:hover {
 :root[data-theme="dark"] .cross-cell.in-word {
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--highlight) 45%, transparent);
+}
+/* Check marks and the active square always win over the word tint. */
+:root[data-theme="dark"] .cross-cell.in-word.incorrect,
+.cross-cell.in-word.incorrect {
+  box-shadow: inset 0 0 0 2px var(--mark);
+}
+:root[data-theme="dark"] .cross-cell.in-word.is-active,
+.cross-cell.in-word.is-active {
+  background: var(--highlight);
 }
 .clue.is-current {
   background: color-mix(in srgb, var(--highlight) 30%, var(--surface));
@@ -2026,7 +2050,7 @@ details.formats {
     border-top: 1px solid var(--rule);
     z-index: 20;
   }
-  body {
+  body:has(.mobile-download) {
     padding-bottom: 72px;
   }
   .support-note,
@@ -2158,7 +2182,10 @@ details.formats {
   .pitch-link {
     min-height: 44px;
   }
-  details > summary,
+  details > summary {
+    min-height: 44px;
+    padding-block: 12px;
+  }
   .text-button,
   .check {
     min-height: 44px;
